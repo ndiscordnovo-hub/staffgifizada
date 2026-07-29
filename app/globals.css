@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #080506;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  background: var(--bg);
+  color: #e7e7f0;
+  min-height: 100vh;
+}
+
+body {
+  font-family: var(--font-sans);
+  /* Ambient animated aurora background */
+  background-color: #080506;
+  background-image:
+    radial-gradient(60rem 60rem at 10% -10%, rgba(230, 57, 70, 0.20), transparent 60%),
+    radial-gradient(50rem 50rem at 100% 0%, rgba(176, 23, 34, 0.16), transparent 55%),
+    radial-gradient(40rem 40rem at 50% 120%, rgba(120, 12, 18, 0.16), transparent 55%);
+  background-attachment: fixed;
+}
+
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.16);
+  background-clip: content-box;
+}
+
+@layer components {
+  /* Glassmorphism surface */
+  .glass {
+    @apply bg-white/[0.04] backdrop-blur-xl border border-white/10;
+  }
+  .glass-strong {
+    @apply bg-white/[0.06] backdrop-blur-2xl border border-white/10;
+  }
+  .card {
+    @apply glass rounded-2xl shadow-card;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+      transition-all duration-200 select-none disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn text-white bg-gradient-to-br from-brand-500 to-brand-700
+      hover:from-brand-400 hover:to-brand-600 hover:shadow-glow hover:-translate-y-0.5 active:translate-y-0;
+  }
+  .btn-ghost {
+    @apply btn text-white/80 bg-white/[0.05] border border-white/10
+      hover:bg-white/10 hover:text-white hover:-translate-y-0.5 active:translate-y-0;
+  }
+  .btn-soft {
+    @apply btn text-white/70 hover:text-white hover:bg-white/10;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium
+      bg-white/[0.05] border border-white/10 text-white/70
+      hover:bg-white/10 hover:text-white hover:border-brand-400/40 transition-all cursor-pointer;
+  }
+
+  .field-label {
+    @apply text-xs font-medium text-white/50 mb-1.5 flex items-center justify-between;
+  }
+  .range {
+    @apply w-full h-1.5 appearance-none rounded-full bg-white/10 cursor-pointer accent-brand-500;
+  }
+  .input {
+    @apply w-full rounded-lg bg-white/[0.04] border border-white/10 px-3 py-2 text-sm
+      text-white placeholder-white/30 focus:outline-none focus:border-brand-400/60 focus:ring-2 focus:ring-brand-500/20;
+  }
+}
+
+/* Checkerboard for transparency preview */
+.checkerboard {
+  background-image:
+    linear-gradient(45deg, #2a2a3a 25%, transparent 25%),
+    linear-gradient(-45deg, #2a2a3a 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #2a2a3a 75%),
+    linear-gradient(-45deg, transparent 75%, #2a2a3a 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  background-color: #1e1e2a;
+}
+
+.gradient-text {
+  @apply bg-gradient-to-r from-brand-500 via-brand-300 to-white bg-clip-text text-transparent;
+}

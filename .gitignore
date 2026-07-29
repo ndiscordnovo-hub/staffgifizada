@@ -1,0 +1,15 @@
+/node_modules
+/.next
+/out
+/build
+*.log
+.DS_Store
+.env*.local
+.vercel
+
+# Artefatos de deploy do Campos Cloud (não vão pro Git; a Vercel builda sozinha)
+/deploy
+nebula-campos.zip
+
+# Config local do Claude Code (pessoal)
+.claude/settings.local.json
