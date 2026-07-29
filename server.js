@@ -9,6 +9,38 @@ const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "0.0.0.0";
 const ROOT = path.join(__dirname, "out");
 
+// Strong security headers, kept in sync with vercel.json.
+const CSP = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "img-src 'self' data: blob:",
+  "media-src 'self' blob:",
+  "font-src 'self' data:",
+  "style-src 'self' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://unpkg.com",
+  "worker-src 'self' blob:",
+  "child-src 'self' blob:",
+  "connect-src 'self' blob: data: https://unpkg.com",
+  "manifest-src 'self'",
+  "upgrade-insecure-requests",
+].join("; ");
+
+const SECURITY_HEADERS = {
+  "Content-Security-Policy": CSP,
+  "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=(), midi=(), interest-cohort=()",
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Cross-Origin-Resource-Policy": "same-origin",
+  "X-DNS-Prefetch-Control": "off",
+  "X-Permitted-Cross-Domain-Policies": "none",
+};
+
 const MIME = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -69,7 +101,7 @@ const server = http.createServer((req, res) => {
     const cache = urlPath.startsWith("/_next/")
       ? "public, max-age=31536000, immutable"
       : "public, max-age=0, must-revalidate";
-    res.writeHead(status, { "Content-Type": type, "Cache-Control": cache });
+    res.writeHead(status, { "Content-Type": type, "Cache-Control": cache, ...SECURITY_HEADERS });
     res.end(data);
   });
 });
