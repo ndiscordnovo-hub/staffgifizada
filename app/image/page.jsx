@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   RotateCw, FlipHorizontal2, FlipVertical2, Crop, Sun, Contrast,
   Droplets, Sparkles, Download, Eye, ImageIcon, Maximize, Wand2,
-  SlidersHorizontal, Frame, Layers as LayersIcon, ZoomIn, ZoomOut, RefreshCw, Save, Type,
+  SlidersHorizontal, Frame, Layers as LayersIcon, ZoomIn, ZoomOut, RefreshCw, Save, Type, Lock, Unlock,
 } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import CropOverlay from "@/components/CropOverlay";
@@ -36,6 +36,7 @@ function ImageEditorInner() {
   const [showOriginal, setShowOriginal] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [outBytes, setOutBytes] = useState(null);
+  const [lockAspect, setLockAspect] = useState(true);
 
   const patch = (p) => setEdits((e) => ({ ...e, ...p }));
 
@@ -74,6 +75,27 @@ function ImageEditorInner() {
   }, [img, edits, cropping]);
 
   const size = useMemo(() => (img ? outputSize(img, edits) : { w: 0, h: 0 }), [img, edits]);
+
+  // Base dimensions (after crop/rotation, before resize) drive the aspect lock.
+  const baseAspect = useMemo(() => {
+    if (!img) return 1;
+    const sw = edits.crop ? edits.crop.w : img.naturalWidth;
+    const sh = edits.crop ? edits.crop.h : img.naturalHeight;
+    const rot = edits.rotate === 90 || edits.rotate === 270;
+    const w = rot ? sh : sw, h = rot ? sw : sh;
+    return h ? w / h : 1;
+  }, [img, edits.crop, edits.rotate]);
+
+  const setCustomW = (val) => {
+    const v = val ? Math.max(1, Math.round(+val)) : null;
+    if (v && lockAspect) patch({ resizeW: v, resizeH: Math.max(1, Math.round(v / baseAspect)) });
+    else patch({ resizeW: v });
+  };
+  const setCustomH = (val) => {
+    const v = val ? Math.max(1, Math.round(+val)) : null;
+    if (v && lockAspect) patch({ resizeH: v, resizeW: Math.max(1, Math.round(v * baseAspect)) });
+    else patch({ resizeH: v });
+  };
 
   const handleDownload = async () => {
     if (!img) return;
@@ -281,20 +303,33 @@ function ImageEditorInner() {
               )}
 
               {tab === "size" && (
-                <Panel title="Tamanho & presets" icon={Maximize}>
-                  <div className="grid grid-cols-2 gap-2 mb-4">
-                    <label className="block">
+                <Panel title="Tamanho personalizado" icon={Maximize}>
+                  <div className="flex items-end gap-2 mb-2">
+                    <label className="block flex-1">
                       <span className="field-label">Largura</span>
-                      <input type="number" className="input" value={edits.resizeW ?? size.w}
-                        onChange={(e) => patch({ resizeW: e.target.value ? +e.target.value : null })} />
+                      <input type="number" min="1" className="input" value={edits.resizeW ?? size.w}
+                        onChange={(e) => setCustomW(e.target.value)} />
                     </label>
-                    <label className="block">
+                    <button
+                      onClick={() => setLockAspect((v) => !v)}
+                      title={lockAspect ? "Proporção travada" : "Proporção livre"}
+                      className={`btn mb-0.5 !px-3 !py-2.5 border ${lockAspect ? "bg-brand-500/20 border-brand-400/50 text-brand-200" : "bg-white/[0.04] border-white/10 text-white/50"}`}
+                    >
+                      {lockAspect ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                    </button>
+                    <label className="block flex-1">
                       <span className="field-label">Altura</span>
-                      <input type="number" className="input" value={edits.resizeH ?? size.h}
-                        onChange={(e) => patch({ resizeH: e.target.value ? +e.target.value : null })} />
+                      <input type="number" min="1" className="input" value={edits.resizeH ?? size.h}
+                        onChange={(e) => setCustomH(e.target.value)} />
                     </label>
                   </div>
-                  <button onClick={() => patch({ resizeW: null, resizeH: null })} className="btn-soft w-full text-xs mb-4">Tamanho original</button>
+                  <p className="mb-3 text-[11px] text-white/40">
+                    {lockAspect ? "🔒 Proporção travada — a altura acompanha a largura." : "🔓 Proporção livre — pode distorcer."}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    <button onClick={() => patch({ resizeW: null, resizeH: null })} className="btn-soft text-xs">Tamanho original</button>
+                    <button onClick={() => { const n = prompt("Tamanho personalizado (ex.: 800x600 ou só 800 p/ largura):", `${size.w}x${size.h}`); if (!n) return; const m = n.toLowerCase().replace(/\s/g, "").split(/[x×,:]/); const w = parseInt(m[0], 10); const h = parseInt(m[1], 10); if (w && h) patch({ resizeW: w, resizeH: h }); else if (w) setCustomW(w); }} className="btn-ghost text-xs">Digitar tamanho</button>
+                  </div>
                   <div className="field-label mb-2">Tamanhos rápidos</div>
                   <div className="flex flex-wrap gap-1.5">
                     {SIZE_PRESETS.map((p) => (
