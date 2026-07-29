@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   RotateCw, FlipHorizontal2, FlipVertical2, Crop, Sun, Contrast,
   Droplets, Sparkles, Download, Eye, ImageIcon, Maximize, Wand2,
-  SlidersHorizontal, Frame, Layers as LayersIcon, ZoomIn, ZoomOut, RefreshCw, Save,
+  SlidersHorizontal, Frame, Layers as LayersIcon, ZoomIn, ZoomOut, RefreshCw, Save, Type,
 } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import CropOverlay from "@/components/CropOverlay";
@@ -19,6 +19,7 @@ import { saveMedia } from "@/lib/storage";
 const TABS = [
   { id: "transform", label: "Transformar", icon: RotateCw },
   { id: "adjust", label: "Ajustes", icon: SlidersHorizontal },
+  { id: "text", label: "Texto", icon: Type },
   { id: "background", label: "Fundo", icon: Frame },
   { id: "size", label: "Tamanho", icon: Maximize },
   { id: "export", label: "Exportar", icon: Download },
@@ -200,7 +201,56 @@ function ImageEditorInner() {
                   <Slider label="Saturação" value={edits.saturation} min={0} max={300} unit="%" onChange={(v) => patch({ saturation: v })} onReset={() => patch({ saturation: 100 })} />
                   <Slider label="Nitidez" value={edits.sharpen} min={0} max={100} onChange={(v) => patch({ sharpen: v })} onReset={() => patch({ sharpen: 0 })} />
                   <Slider label="Desfoque" value={edits.blur} min={0} max={20} unit="px" onChange={(v) => patch({ blur: v })} onReset={() => patch({ blur: 0 })} />
+                  <div className="field-label mb-2">Filtros rápidos</div>
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {[
+                      { l: "Vívido", v: { brightness: 105, contrast: 115, saturation: 140, sharpen: 10 } },
+                      { l: "Suave", v: { brightness: 105, contrast: 95, saturation: 90, sharpen: 0 } },
+                      { l: "P&B", v: { brightness: 100, contrast: 110, saturation: 0, sharpen: 0 } },
+                      { l: "Quente", v: { brightness: 108, contrast: 105, saturation: 130, sharpen: 0 } },
+                      { l: "Frio", v: { brightness: 98, contrast: 108, saturation: 115, sharpen: 0 } },
+                      { l: "Nítido", v: { brightness: 100, contrast: 108, saturation: 105, sharpen: 45 } },
+                    ].map((f) => (
+                      <button key={f.l} onClick={() => patch({ blur: 0, ...f.v })} className="chip">{f.l}</button>
+                    ))}
+                  </div>
                   <button onClick={() => patch({ brightness: 100, contrast: 100, saturation: 100, sharpen: 0, blur: 0 })} className="btn-soft mt-1 w-full text-xs">Redefinir ajustes</button>
+                </Panel>
+              )}
+
+              {tab === "text" && (
+                <Panel title="Texto / marca d'água" icon={Type}>
+                  <label className="block mb-3">
+                    <span className="field-label">Texto</span>
+                    <input type="text" className="input" placeholder="Digite aqui…" value={edits.textContent}
+                      onChange={(e) => patch({ textContent: e.target.value })} />
+                  </label>
+
+                  <div className="field-label mb-1.5">Posição</div>
+                  <div className="grid grid-cols-3 gap-1.5 mb-3 w-32">
+                    {["tl","tc","tr","ml","mc","mr","bl","bc","br"].map((p) => (
+                      <button key={p} onClick={() => patch({ textPos: p })}
+                        className={`h-8 rounded-lg border transition-all ${edits.textPos === p ? "bg-brand-500/30 border-brand-400/60" : "bg-white/[0.03] border-white/10 hover:bg-white/10"}`}>
+                        <span className={`block h-1.5 w-1.5 rounded-full mx-auto ${edits.textPos === p ? "bg-brand-200" : "bg-white/30"}`} />
+                      </button>
+                    ))}
+                  </div>
+
+                  <Slider label="Tamanho" value={edits.textSize} min={2} max={20} unit="%" onChange={(v) => patch({ textSize: v })} />
+                  <Slider label="Opacidade" value={edits.textOpacity} min={10} max={100} unit="%" onChange={(v) => patch({ textOpacity: v })} />
+
+                  <div className="flex items-center gap-3 mb-3">
+                    <label className="field-label !mb-0 flex-1">Cor</label>
+                    <input type="color" value={edits.textColor} onChange={(e) => patch({ textColor: e.target.value })}
+                      className="h-9 w-14 rounded-lg bg-transparent border border-white/10 cursor-pointer" />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => patch({ textBold: !edits.textBold })} className={`chip flex-1 justify-center ${edits.textBold ? "!border-brand-400/60 !bg-brand-500/20 !text-white" : ""}`}>Negrito</button>
+                    <button onClick={() => patch({ textShadow: !edits.textShadow })} className={`chip flex-1 justify-center ${edits.textShadow ? "!border-brand-400/60 !bg-brand-500/20 !text-white" : ""}`}>Sombra</button>
+                  </div>
+                  {edits.textContent && (
+                    <button onClick={() => patch({ textContent: "" })} className="btn-soft mt-3 w-full text-xs">Remover texto</button>
+                  )}
                 </Panel>
               )}
 
