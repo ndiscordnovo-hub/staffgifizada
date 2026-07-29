@@ -5,8 +5,9 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Home, Image as ImageIcon, Film, Video, Repeat, Gauge,
-  Layers, History, Settings, Sparkles, Menu, X, TerminalSquare, FolderHeart,
+  Layers, History, Settings, Sparkles, Menu, X, TerminalSquare, FolderHeart, MessagesSquare,
 } from "lucide-react";
+import { DISCORD_INVITE } from "@/lib/utils";
 
 const NAV = [
   { href: "/", label: "Início", icon: Home },
@@ -84,10 +85,14 @@ export default function Sidebar() {
         <Brand />
         <NavList pathname={pathname} />
         <div className="mt-auto p-4">
-          <div className="card p-4 text-center">
-            <p className="text-xs text-white/60">Tudo processado no seu navegador.</p>
-            <p className="mt-1 text-[11px] text-white/35">100% privado · grátis</p>
-          </div>
+          <a href={DISCORD_INVITE} target="_blank" rel="noreferrer"
+            className="group block rounded-2xl p-4 bg-gradient-to-br from-brand-500/20 to-brand-800/10 border border-brand-400/30 hover:border-brand-400/60 hover:-translate-y-0.5 transition-all">
+            <div className="flex items-center gap-2 text-white font-semibold text-sm">
+              <MessagesSquare className="h-4 w-4 text-brand-300" /> Entre no Discord
+            </div>
+            <p className="mt-1 text-[11px] text-white/45">Novidades, suporte e a comunidade Staff Gifizada.</p>
+          </a>
+          <p className="mt-3 text-center text-[11px] text-white/30">100% privado · grátis</p>
         </div>
       </aside>
 
@@ -112,6 +117,12 @@ export default function Sidebar() {
                 </button>
               </div>
               <NavList pathname={pathname} onNavigate={() => setOpen(false)} />
+              <div className="mt-auto p-4">
+                <a href={DISCORD_INVITE} target="_blank" rel="noreferrer"
+                  className="flex items-center justify-center gap-2 rounded-xl p-3 bg-gradient-to-br from-brand-500/20 to-brand-800/10 border border-brand-400/30 text-white font-semibold text-sm">
+                  <MessagesSquare className="h-4 w-4 text-brand-300" /> Entre no Discord
+                </a>
+              </div>
             </motion.aside>
           </>
         )}

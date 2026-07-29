@@ -3,9 +3,10 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Sparkles, Layers, Gauge, Repeat, Film, ImageIcon, Video,
-  ShieldCheck, Zap, Wand2, ArrowRight,
+  ShieldCheck, Zap, Wand2, ArrowRight, MessagesSquare,
 } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
+import { DISCORD_INVITE } from "@/lib/utils";
 
 const QUICK = [
   { href: "/image?preset=discord-banner", label: "Criar Banner Discord", desc: "600×240 otimizado", icon: ImageIcon, color: "from-brand-500/35 to-brand-800/10" },
@@ -80,6 +81,26 @@ export default function HomePage() {
             <p className="mt-1 text-sm text-white/50">{desc}</p>
           </div>
         ))}
+      </section>
+
+      {/* Discord CTA */}
+      <section>
+        <a href={DISCORD_INVITE} target="_blank" rel="noreferrer"
+          className="group relative block overflow-hidden rounded-3xl border border-brand-400/30 bg-gradient-to-r from-brand-600/25 via-brand-500/15 to-transparent p-6 sm:p-8 hover:border-brand-400/60 transition-all">
+          <div className="pointer-events-none absolute inset-0 -translate-x-full group-hover:animate-shimmer bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+          <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
+            <div className="flex items-center gap-4">
+              <div className="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-700 shadow-glow shrink-0">
+                <MessagesSquare className="h-7 w-7 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Entre no nosso servidor do Discord</h3>
+                <p className="mt-0.5 text-sm text-white/55">Suporte, novidades, dicas e a comunidade Staff Gifizada. Bora fazer parte!</p>
+              </div>
+            </div>
+            <span className="btn-primary shrink-0">Entrar agora <ArrowRight className="h-4 w-4" /></span>
+          </div>
+        </a>
       </section>
     </div>
   );
