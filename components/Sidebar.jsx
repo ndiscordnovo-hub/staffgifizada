@@ -59,7 +59,7 @@ function Brand() {
         <Sparkles className="h-5 w-5 text-white" />
       </div>
       <div className="leading-tight">
-        <div className="text-[15px] font-bold tracking-tight text-white">Gifizada<span className="gradient-text">Studio</span></div>
+        <div className="text-[15px] font-bold tracking-tight text-white">Gif<span className="gradient-text">Edition</span></div>
         <div className="text-[10px] uppercase tracking-widest text-white/35">media toolkit</div>
       </div>
     </Link>

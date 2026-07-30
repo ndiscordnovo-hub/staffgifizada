@@ -11,7 +11,7 @@ import { DISCORD_INVITE } from "@/lib/utils";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 
 export const metadata = {
-  title: "Gifizada Studio — Editor de mídia para Discord",
+  title: "Gif Edition — Editor de mídia para Discord",
   description:
     "Editor gratuito e premium de imagens, GIFs e vídeos para criadores do Discord. Processamento 100% no navegador.",
   icons: { icon: "/favicon.svg" },
@@ -40,7 +40,7 @@ export default function RootLayout({ children }) {
               </div>
               <footer className="mt-8 border-t border-white/10">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/40">
-                  <span>© {new Date().getFullYear()} Gifizada Studio · feito para a comunidade do Discord</span>
+                  <span>© {new Date().getFullYear()} Gif Edition · feito para a comunidade do Discord</span>
                   <div className="flex items-center gap-4">
                     <Link href="/termos" className="hover:text-white/80 transition-colors">Termos</Link>
                     <Link href="/privacidade" className="hover:text-white/80 transition-colors">Privacidade</Link>

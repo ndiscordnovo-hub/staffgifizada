@@ -224,7 +224,7 @@ function ImageEditorInner() {
         <div className="space-y-4">
           <div className="card p-2">
             <Segmented
-              scroll
+              wrap
               options={TABS.map((t) => ({ value: t.id, label: t.label }))}
               value={tab}
               onChange={setTab}
