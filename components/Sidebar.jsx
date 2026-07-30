@@ -59,7 +59,7 @@ function Brand() {
         <Sparkles className="h-5 w-5 text-white" />
       </div>
       <div className="leading-tight">
-        <div className="text-[15px] font-bold tracking-tight text-white">Nebula<span className="gradient-text">Studio</span></div>
+        <div className="text-[15px] font-bold tracking-tight text-white">Gifizada<span className="gradient-text">Studio</span></div>
         <div className="text-[10px] uppercase tracking-widest text-white/35">media toolkit</div>
       </div>
     </Link>
@@ -75,9 +75,16 @@ export default function Sidebar() {
       {/* Mobile top bar */}
       <div className="lg:hidden sticky top-0 z-40 flex items-center justify-between glass-strong px-4 py-3">
         <Brand />
-        <button onClick={() => setOpen(true)} className="btn-ghost !p-2.5" aria-label="Abrir menu">
-          <Menu className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <a href={DISCORD_INVITE} target="_blank" rel="noreferrer"
+            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-white bg-gradient-to-br from-brand-500/25 to-brand-800/10 border border-brand-400/40"
+            aria-label="Entrar no Discord">
+            <MessagesSquare className="h-4 w-4 text-brand-300" /> Discord
+          </a>
+          <button onClick={() => setOpen(true)} className="btn-ghost !p-2.5" aria-label="Abrir menu">
+            <Menu className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {/* Desktop rail */}

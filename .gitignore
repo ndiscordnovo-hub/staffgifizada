@@ -7,9 +7,9 @@
 .env*.local
 .vercel
 
-# Artefatos de deploy do Campos Cloud (não vão pro Git; a Vercel builda sozinha)
+# Artefatos de deploy (não vão pro Git; a Vercel builda sozinha)
 /deploy
-nebula-campos.zip
+*.zip
 
 # Config local do Claude Code (pessoal)
 .claude/settings.local.json
