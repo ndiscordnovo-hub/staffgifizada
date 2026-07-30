@@ -32,7 +32,7 @@ export default function RootLayout({ children }) {
             <MessagesSquare className="h-4 w-4 text-brand-300" />
             Entrar no Discord
           </a>
-          <div className="flex min-h-screen">
+          <div className="flex flex-col lg:flex-row min-h-screen">
             <Sidebar />
             <main className="flex-1 min-w-0 lg:pl-0 flex flex-col">
               <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:pb-8 lg:pt-20 flex-1">
