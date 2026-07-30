@@ -4,7 +4,15 @@ import { QrCode, Download, Save } from "lucide-react";
 import { Panel, Slider, Segmented, Stat } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
 import { downloadBlob, DISCORD_INVITE } from "@/lib/utils";
+import { loadImage } from "@/lib/imageProcessor";
 import { saveMedia } from "@/lib/storage";
+
+const COLOR_PRESETS = [
+  { l: "Clássico", dark: "#000000", light: "#ffffff" },
+  { l: "Gif Edition", dark: "#e63946", light: "#0b0709" },
+  { l: "Vermelho", dark: "#d21f2c", light: "#ffffff" },
+  { l: "Discord", dark: "#5865F2", light: "#ffffff" },
+];
 
 export default function QrCodePage() {
   const { toast } = useMedia();
@@ -15,6 +23,13 @@ export default function QrCodePage() {
   const [dark, setDark] = useState("#000000");
   const [light, setLight] = useState("#ffffff");
   const [ecc, setEcc] = useState("M");
+  const [logoImg, setLogoImg] = useState(null); // opcional
+
+  const onLogoFile = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    loadImage(f).then(setLogoImg).catch(() => toast("Logo inválido.", "error"));
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -22,16 +37,33 @@ export default function QrCodePage() {
       if (!canvasRef.current) return;
       const QRCode = (await import("qrcode")).default;
       try {
+        // Com logo, usa correção máxima pra continuar escaneável.
         await QRCode.toCanvas(canvasRef.current, text || " ", {
-          width: size, margin, errorCorrectionLevel: ecc,
+          width: size, margin, errorCorrectionLevel: logoImg ? "H" : ecc,
           color: { dark, light },
         });
+        if (logoImg && !cancelled) {
+          const ctx = canvasRef.current.getContext("2d");
+          const box = size * 0.24;
+          const pad = box * 0.14;
+          const x = (size - box) / 2;
+          const y = (size - box) / 2;
+          // fundo claro arredondado atrás do logo
+          ctx.fillStyle = light;
+          const r = box * 0.18;
+          ctx.beginPath();
+          ctx.roundRect(x - pad, y - pad, box + pad * 2, box + pad * 2, r);
+          ctx.fill();
+          const ar = logoImg.naturalHeight / logoImg.naturalWidth || 1;
+          const lw = box, lh = box * ar;
+          ctx.drawImage(logoImg, (size - lw) / 2, (size - lh) / 2, lw, lh);
+        }
       } catch (e) {
         if (!cancelled) console.error(e);
       }
     })();
     return () => { cancelled = true; };
-  }, [text, size, margin, dark, light, ecc]);
+  }, [text, size, margin, dark, light, ecc, logoImg]);
 
   const getBlob = () => new Promise((res) => canvasRef.current.toBlob(res, "image/png"));
 
@@ -74,6 +106,15 @@ export default function QrCodePage() {
           </Panel>
 
           <Panel title="Aparência">
+            <div className="field-label mb-1.5">Cores prontas (opcional)</div>
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {COLOR_PRESETS.map((p) => (
+                <button key={p.l} onClick={() => { setDark(p.dark); setLight(p.light); }}
+                  className={`chip ${dark === p.dark && light === p.light ? "!border-brand-400/60 !bg-brand-500/20 !text-white" : ""}`}>
+                  <span className="h-3 w-3 rounded-full border border-white/20" style={{ background: p.dark }} /> {p.l}
+                </button>
+              ))}
+            </div>
             <Slider label="Tamanho" value={size} min={128} max={1024} step={32} unit="px" onChange={setSize} />
             <Slider label="Margem" value={margin} min={0} max={8} onChange={setMargin} />
             <div className="grid grid-cols-2 gap-3 mt-1 mb-3">
@@ -88,6 +129,20 @@ export default function QrCodePage() {
             </div>
             <div className="field-label">Nível de correção (resistência a dano)</div>
             <Segmented options={[{ value: "L", label: "Baixo" }, { value: "M", label: "Médio" }, { value: "Q", label: "Alto" }, { value: "H", label: "Máx" }]} value={ecc} onChange={setEcc} />
+
+            {/* Logo no centro (opcional) */}
+            <div className="mt-5 pt-4 border-t border-white/10">
+              <div className="text-sm font-semibold text-white mb-2">Logo no centro (opcional)</div>
+              {!logoImg ? (
+                <label className="btn-ghost w-full cursor-pointer justify-center">
+                  Enviar logo
+                  <input type="file" accept="image/*" className="hidden" onChange={onLogoFile} />
+                </label>
+              ) : (
+                <button onClick={() => setLogoImg(null)} className="btn-soft w-full text-xs">Remover logo</button>
+              )}
+              {logoImg && <p className="mt-2 text-[11px] text-white/40">Correção máxima ativada automaticamente pro QR continuar escaneável.</p>}
+            </div>
           </Panel>
 
           <div className="flex gap-2">
