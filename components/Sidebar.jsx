@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Home, Image as ImageIcon, Film, Video, Repeat, Gauge,
   Layers, History, Settings, Sparkles, Menu, X, TerminalSquare, FolderHeart, MessagesSquare,
+  Smile, Laugh, QrCode,
 } from "lucide-react";
 import { DISCORD_INVITE } from "@/lib/utils";
 
@@ -16,6 +17,9 @@ const NAV = [
   { href: "/video", label: "Vídeos", icon: Video },
   { href: "/convert", label: "Conversor", icon: Repeat },
   { href: "/optimize", label: "Otimização", icon: Gauge },
+  { href: "/emoji", label: "Emoji & Sticker", icon: Smile },
+  { href: "/meme", label: "Meme", icon: Laugh },
+  { href: "/qrcode", label: "QR Code", icon: QrCode },
   { href: "/batch", label: "Processamento em lote", icon: Layers },
   { href: "/saved", label: "Salvos", icon: FolderHeart },
   { href: "/history", label: "Histórico", icon: History },

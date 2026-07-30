@@ -4,14 +4,14 @@ import { TerminalSquare, Trash2, Copy, ArrowDownToLine, Filter } from "lucide-re
 import { getLogs, clearLogs } from "@/lib/logger";
 import { useMedia } from "@/components/MediaContext";
 
-// Color + prefix per log level (terminal look).
+// Color + badge per log level (terminal look).
 const STYLE = {
-  cmd:     { cls: "text-white",        tag: "»" },
-  info:    { cls: "text-sky-300",      tag: "i" },
-  success: { cls: "text-emerald-400",  tag: "✓" },
-  warn:    { cls: "text-amber-400",    tag: "!" },
-  error:   { cls: "text-red-400",      tag: "✕" },
-  ffmpeg:  { cls: "text-white/35",     tag: "·" },
+  cmd:     { text: "text-white",        badge: "bg-white/10 text-white/80 border-white/15",       label: "CMD" },
+  info:    { text: "text-sky-300",      badge: "bg-sky-500/15 text-sky-300 border-sky-400/25",    label: "INFO" },
+  success: { text: "text-emerald-300",  badge: "bg-emerald-500/15 text-emerald-300 border-emerald-400/25", label: "OK" },
+  warn:    { text: "text-amber-300",    badge: "bg-amber-500/15 text-amber-300 border-amber-400/25", label: "WARN" },
+  error:   { text: "text-red-300",      badge: "bg-red-500/20 text-red-300 border-red-400/30",    label: "ERR" },
+  ffmpeg:  { text: "text-white/40",     badge: "bg-white/[0.06] text-white/40 border-white/10",   label: "FFMPEG" },
 };
 
 const FILTERS = [
@@ -97,30 +97,51 @@ export default function LogsPage() {
       </div>
 
       {/* Terminal window */}
-      <div className="rounded-2xl border border-white/10 bg-black/60 backdrop-blur-xl overflow-hidden shadow-card">
-        <div className="flex items-center gap-2 border-b border-white/10 bg-white/[0.03] px-4 py-2.5">
+      <div className="relative rounded-2xl border border-white/10 overflow-hidden shadow-card ring-1 ring-brand-500/10">
+        {/* Title bar */}
+        <div className="relative z-10 flex items-center gap-2 border-b border-white/10 bg-white/[0.03] px-4 py-2.5">
           <span className="h-3 w-3 rounded-full bg-red-500/80" />
           <span className="h-3 w-3 rounded-full bg-amber-400/80" />
           <span className="h-3 w-3 rounded-full bg-emerald-500/80" />
-          <span className="ml-3 text-xs text-white/40 font-mono">nebula@studio — console</span>
-          <span className="ml-auto text-[11px] text-white/30 font-mono">{visible.length} linha(s)</span>
+          <span className="ml-3 text-xs font-mono">
+            <span className="text-emerald-400">gifedition</span><span className="text-white/40">@studio</span><span className="text-white/25">:~$</span>
+          </span>
+          <span className="ml-2 flex items-center gap-1.5 text-[10px] font-mono text-emerald-400/80">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" /> live
+          </span>
+          <span className="ml-auto flex items-center gap-2 text-[11px] font-mono">
+            {errorCount > 0 && <span className="rounded bg-red-500/20 border border-red-400/30 px-1.5 py-0.5 text-red-300">{errorCount} err</span>}
+            <span className="text-white/30">{visible.length} ln</span>
+          </span>
         </div>
-        <div ref={boxRef} className="h-[56vh] overflow-auto p-4 font-mono text-[12.5px] leading-relaxed">
-          {visible.length === 0 ? (
-            <div className="text-white/30">Sem registros ainda. Edite ou converta um arquivo para ver a saída aqui…</div>
-          ) : (
-            visible.map((l) => {
-              const s = STYLE[l.level] || STYLE.info;
-              return (
-                <div key={l.id} className="flex gap-2 whitespace-pre-wrap break-words">
-                  <span className="shrink-0 text-white/25 select-none">{ts(l.at)}</span>
-                  <span className={`shrink-0 select-none ${s.cls}`}>{s.tag}</span>
-                  <span className={l.level === "ffmpeg" ? "text-white/40" : "text-white/85"}>{l.message}</span>
-                </div>
-              );
-            })
-          )}
-          <div ref={endRef} />
+
+        {/* Console body */}
+        <div ref={boxRef} className="term-bg term-scanlines relative h-[56vh] overflow-auto p-4 font-mono text-[12.5px] leading-relaxed">
+          <div className="relative z-[2]">
+            {visible.length === 0 ? (
+              <div className="text-white/30">Aguardando eventos… edite ou converta um arquivo para ver a saída aqui.</div>
+            ) : (
+              visible.map((l, i) => {
+                const s = STYLE[l.level] || STYLE.info;
+                return (
+                  <div key={l.id} className="group flex items-start gap-2.5 rounded px-1 -mx-1 hover:bg-white/[0.035] transition-colors whitespace-pre-wrap break-words">
+                    <span className="shrink-0 w-8 text-right text-white/20 select-none tabular-nums">{i + 1}</span>
+                    <span className="shrink-0 text-white/25 select-none tabular-nums">{ts(l.at)}</span>
+                    <span className={`shrink-0 select-none rounded border px-1.5 text-[10px] leading-5 font-semibold ${s.badge}`}>{s.label}</span>
+                    <span className={s.text}>{l.message}</span>
+                  </div>
+                );
+              })
+            )}
+            {/* Blinking prompt */}
+            <div className="flex items-center gap-2 px-1 -mx-1 mt-1 select-none">
+              <span className="w-8" />
+              <span className="text-emerald-400">gifedition@studio</span>
+              <span className="text-white/25">:~$</span>
+              <span className="term-cursor text-brand-300">▊</span>
+            </div>
+            <div ref={endRef} />
+          </div>
         </div>
       </div>
 

@@ -42,6 +42,13 @@ function ImageEditorInner() {
   const [bgTol, setBgTol] = useState(60);
   const [bgBusy, setBgBusy] = useState(null); // null | "ia" | "cor"
   const [bgProgress, setBgProgress] = useState(null);
+  const [logoImg, setLogoImg] = useState(null);
+
+  const onLogoFile = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    loadImage(f).then(setLogoImg).catch(() => toast("Logo inválido.", "error"));
+  };
 
   const patch = (p) => setEdits((e) => ({ ...e, ...p }));
 
@@ -103,12 +110,12 @@ function ImageEditorInner() {
   // Re-render preview whenever edits change.
   useEffect(() => {
     if (!img || !canvasRef.current || cropping) return;
-    render(img, edits, canvasRef.current);
+    render(img, edits, canvasRef.current, logoImg);
     // Estimate output size (debounced-ish via microtask).
     const c = canvasRef.current;
     const mime = edits.format === "jpeg" ? "image/jpeg" : edits.format === "webp" ? "image/webp" : "image/png";
     c.toBlob((b) => b && setOutBytes(b.size), mime, edits.format === "png" ? undefined : edits.quality);
-  }, [img, edits, cropping]);
+  }, [img, edits, cropping, logoImg]);
 
   const size = useMemo(() => (img ? outputSize(img, edits) : { w: 0, h: 0 }), [img, edits]);
 
@@ -135,7 +142,7 @@ function ImageEditorInner() {
 
   const handleDownload = async () => {
     if (!img) return;
-    const blob = await toBlob(img, edits, canvasRef.current);
+    const blob = await toBlob(img, edits, canvasRef.current, logoImg);
     const name = `${baseName(media.name)}-nebula.${edits.format === "jpeg" ? "jpg" : edits.format}`;
     downloadBlob(blob, name);
     addHistory({
@@ -148,7 +155,7 @@ function ImageEditorInner() {
 
   const handleSave = async () => {
     if (!img) return;
-    const blob = await toBlob(img, edits, canvasRef.current);
+    const blob = await toBlob(img, edits, canvasRef.current, logoImg);
     const name = `${baseName(media.name)}-nebula.${edits.format === "jpeg" ? "jpg" : edits.format}`;
     await saveMedia({ name, kind: "image", type: blob.type, blob, w: size.w, h: size.h });
     toast("Salvo na sua biblioteca!", "success");
@@ -310,6 +317,32 @@ function ImageEditorInner() {
                   {edits.textContent && (
                     <button onClick={() => patch({ textContent: "" })} className="btn-soft mt-3 w-full text-xs">Remover texto</button>
                   )}
+
+                  {/* Logo / marca d'água de imagem */}
+                  <div className="mt-5 pt-4 border-t border-white/10">
+                    <div className="text-sm font-semibold text-white mb-2">Logo (marca d'água)</div>
+                    {!logoImg ? (
+                      <label className="btn-ghost w-full cursor-pointer justify-center">
+                        Enviar logo (PNG)
+                        <input type="file" accept="image/*" className="hidden" onChange={onLogoFile} />
+                      </label>
+                    ) : (
+                      <>
+                        <div className="field-label mb-1.5">Posição</div>
+                        <div className="grid grid-cols-3 gap-1.5 mb-3 w-32">
+                          {["tl","tc","tr","ml","mc","mr","bl","bc","br"].map((p) => (
+                            <button key={p} onClick={() => patch({ logoPos: p })}
+                              className={`h-8 rounded-lg border transition-all ${edits.logoPos === p ? "bg-brand-500/30 border-brand-400/60" : "bg-white/[0.03] border-white/10 hover:bg-white/10"}`}>
+                              <span className={`block h-1.5 w-1.5 rounded-full mx-auto ${edits.logoPos === p ? "bg-brand-200" : "bg-white/30"}`} />
+                            </button>
+                          ))}
+                        </div>
+                        <Slider label="Tamanho do logo" value={edits.logoSize} min={5} max={60} unit="%" onChange={(v) => patch({ logoSize: v })} />
+                        <Slider label="Opacidade do logo" value={edits.logoOpacity} min={10} max={100} unit="%" onChange={(v) => patch({ logoOpacity: v })} />
+                        <button onClick={() => setLogoImg(null)} className="btn-soft w-full text-xs mt-1">Remover logo</button>
+                      </>
+                    )}
+                  </div>
                 </Panel>
               )}
 
