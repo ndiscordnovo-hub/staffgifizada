@@ -188,10 +188,10 @@ function ImageEditorInner() {
         <div className="space-y-4">
           <div className="card p-2">
             <Segmented
+              scroll
               options={TABS.map((t) => ({ value: t.id, label: t.label }))}
               value={tab}
               onChange={setTab}
-              className="flex-wrap"
             />
           </div>
 
@@ -222,21 +222,22 @@ function ImageEditorInner() {
                   <Slider label="Contraste" value={edits.contrast} min={0} max={200} unit="%" onChange={(v) => patch({ contrast: v })} onReset={() => patch({ contrast: 100 })} />
                   <Slider label="Saturação" value={edits.saturation} min={0} max={300} unit="%" onChange={(v) => patch({ saturation: v })} onReset={() => patch({ saturation: 100 })} />
                   <Slider label="Nitidez" value={edits.sharpen} min={0} max={100} onChange={(v) => patch({ sharpen: v })} onReset={() => patch({ sharpen: 0 })} />
+                  <Slider label="Preto e Branco" value={edits.grayscale} min={0} max={100} unit="%" onChange={(v) => patch({ grayscale: v })} onReset={() => patch({ grayscale: 0 })} />
                   <Slider label="Desfoque" value={edits.blur} min={0} max={20} unit="px" onChange={(v) => patch({ blur: v })} onReset={() => patch({ blur: 0 })} />
                   <div className="field-label mb-2">Filtros rápidos</div>
                   <div className="flex flex-wrap gap-1.5 mb-3">
                     {[
-                      { l: "Vívido", v: { brightness: 105, contrast: 115, saturation: 140, sharpen: 10 } },
-                      { l: "Suave", v: { brightness: 105, contrast: 95, saturation: 90, sharpen: 0 } },
-                      { l: "P&B", v: { brightness: 100, contrast: 110, saturation: 0, sharpen: 0 } },
-                      { l: "Quente", v: { brightness: 108, contrast: 105, saturation: 130, sharpen: 0 } },
-                      { l: "Frio", v: { brightness: 98, contrast: 108, saturation: 115, sharpen: 0 } },
-                      { l: "Nítido", v: { brightness: 100, contrast: 108, saturation: 105, sharpen: 45 } },
+                      { l: "Vívido", v: { brightness: 105, contrast: 115, saturation: 140, sharpen: 10, grayscale: 0 } },
+                      { l: "Suave", v: { brightness: 105, contrast: 95, saturation: 90, sharpen: 0, grayscale: 0 } },
+                      { l: "P&B", v: { brightness: 100, contrast: 110, saturation: 100, sharpen: 0, grayscale: 100 } },
+                      { l: "Quente", v: { brightness: 108, contrast: 105, saturation: 130, sharpen: 0, grayscale: 0 } },
+                      { l: "Frio", v: { brightness: 98, contrast: 108, saturation: 115, sharpen: 0, grayscale: 0 } },
+                      { l: "Nítido", v: { brightness: 100, contrast: 108, saturation: 105, sharpen: 45, grayscale: 0 } },
                     ].map((f) => (
                       <button key={f.l} onClick={() => patch({ blur: 0, ...f.v })} className="chip">{f.l}</button>
                     ))}
                   </div>
-                  <button onClick={() => patch({ brightness: 100, contrast: 100, saturation: 100, sharpen: 0, blur: 0 })} className="btn-soft mt-1 w-full text-xs">Redefinir ajustes</button>
+                  <button onClick={() => patch({ brightness: 100, contrast: 100, saturation: 100, sharpen: 0, blur: 0, grayscale: 0 })} className="btn-soft mt-1 w-full text-xs">Redefinir ajustes</button>
                 </Panel>
               )}
 

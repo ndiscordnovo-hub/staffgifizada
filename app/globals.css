@@ -18,6 +18,7 @@ body {
   background: var(--bg);
   color: #e7e7f0;
   min-height: 100vh;
+  overflow-x: hidden; /* nunca rolar de lado no celular */
 }
 
 body {
@@ -110,4 +111,13 @@ body {
 
 .gradient-text {
   @apply bg-gradient-to-r from-brand-500 via-brand-300 to-white bg-clip-text text-transparent;
+}
+
+/* Hide scrollbar (for the horizontal tab row) while keeping scroll */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

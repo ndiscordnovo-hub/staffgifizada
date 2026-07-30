@@ -37,16 +37,16 @@ export function Slider({ label, value, min, max, step = 1, unit = "", onChange, 
   );
 }
 
-export function Segmented({ options, value, onChange, className = "" }) {
+export function Segmented({ options, value, onChange, className = "", scroll = false }) {
   return (
-    <div className={`relative flex gap-1 rounded-xl bg-white/[0.04] border border-white/10 p-1 ${className}`}>
+    <div className={`relative flex gap-1 rounded-xl bg-white/[0.04] border border-white/10 p-1 ${scroll ? "overflow-x-auto no-scrollbar" : ""} ${className}`}>
       {options.map((o) => {
         const active = o.value === value;
         return (
           <button
             key={o.value}
             onClick={() => onChange(o.value)}
-            className={`relative flex-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors
+            className={`relative ${scroll ? "shrink-0 px-3.5" : "flex-1 px-2.5"} rounded-lg py-2 text-xs font-medium transition-colors whitespace-nowrap
               ${active ? "text-white" : "text-white/50 hover:text-white/80"}`}
           >
             {active && (
