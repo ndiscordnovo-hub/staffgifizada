@@ -23,7 +23,7 @@ const CSP = [
   "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://unpkg.com",
   "worker-src 'self' blob:",
   "child-src 'self' blob:",
-  "connect-src 'self' blob: data: https://unpkg.com",
+  "connect-src 'self' blob: data: https://unpkg.com https://staticimgly.com",
   "manifest-src 'self'",
   "upgrade-insecure-requests",
 ].join("; ");

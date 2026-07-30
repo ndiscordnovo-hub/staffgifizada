@@ -6,6 +6,9 @@ const nextConfig = {
   // a tiny static file server (server.js) serves `out/` on hosts like Campos Cloud.
   output: "export",
   images: { unoptimized: true },
+  // The AI background-removal lib bundles onnxruntime-web, whose huge prebuilt
+  // file the SWC minifier can't parse. Disable SWC minify so the build passes.
+  swcMinify: false,
   // FFmpeg.wasm core is loaded (single-threaded) from a CDN at runtime.
 };
 

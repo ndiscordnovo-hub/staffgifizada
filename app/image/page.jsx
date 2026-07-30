@@ -5,13 +5,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   RotateCw, FlipHorizontal2, FlipVertical2, Crop, Sun, Contrast,
   Droplets, Sparkles, Download, Eye, ImageIcon, Maximize, Wand2,
-  SlidersHorizontal, Frame, Layers as LayersIcon, ZoomIn, ZoomOut, RefreshCw, Save, Type, Lock, Unlock,
+  SlidersHorizontal, Frame, Layers as LayersIcon, ZoomIn, ZoomOut, RefreshCw, Save, Type, Lock, Unlock, Eraser,
 } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import CropOverlay from "@/components/CropOverlay";
-import { Panel, Slider, Segmented, ToolButton, Stat, EmptyState } from "@/components/ui";
+import { Panel, Slider, Segmented, ToolButton, Stat, EmptyState, ProgressBar } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
 import { DEFAULT_EDITS, loadImage, render, toBlob, outputSize } from "@/lib/imageProcessor";
+import { removeBgAI, removeBgByColor, guessBackgroundColor } from "@/lib/bgremove";
 import { formatBytes, downloadBlob, baseName, SIZE_PRESETS } from "@/lib/utils";
 import { addHistory } from "@/lib/history";
 import { saveMedia } from "@/lib/storage";
@@ -37,8 +38,42 @@ function ImageEditorInner() {
   const [zoom, setZoom] = useState(1);
   const [outBytes, setOutBytes] = useState(null);
   const [lockAspect, setLockAspect] = useState(true);
+  const [bgColor, setBgColor] = useState("#00ff00");
+  const [bgTol, setBgTol] = useState(60);
+  const [bgBusy, setBgBusy] = useState(null); // null | "ia" | "cor"
+  const [bgProgress, setBgProgress] = useState(null);
 
   const patch = (p) => setEdits((e) => ({ ...e, ...p }));
+
+  // Replace the working image with a transparent-background version.
+  const applyCutout = async (blob) => {
+    const file = new File([blob], `${baseName(media.name)}-semfundo.png`, { type: "image/png" });
+    setMedia(file); // reloads editor with the cutout; edits reset to default
+  };
+
+  const doRemoveAI = async () => {
+    if (!media) return;
+    setBgBusy("ia"); setBgProgress(0);
+    try {
+      const blob = await removeBgAI(media.file, (p) => setBgProgress(p));
+      await applyCutout(blob);
+      toast("Fundo removido com IA!", "success");
+    } catch (e) {
+      console.error(e); toast("Falha ao remover o fundo (IA).", "error");
+    } finally { setBgBusy(null); setBgProgress(null); }
+  };
+
+  const doRemoveColor = async () => {
+    if (!img) return;
+    setBgBusy("cor");
+    try {
+      const blob = await removeBgByColor(img, bgColor, bgTol);
+      await applyCutout(blob);
+      toast("Fundo (cor) removido!", "success");
+    } catch (e) {
+      console.error(e); toast("Falha ao remover por cor.", "error");
+    } finally { setBgBusy(null); }
+  };
 
   // Load the image element whenever the media source changes.
   useEffect(() => {
@@ -49,6 +84,7 @@ function ImageEditorInner() {
         setImg(im);
         setEdits(DEFAULT_EDITS);
         setZoom(1);
+        try { setBgColor(guessBackgroundColor(im)); } catch {}
       }
     });
     return () => { revoked = true; };
@@ -300,6 +336,38 @@ function ImageEditorInner() {
                   {edits.background === "transparent" && (
                     <p className="mt-3 text-xs text-amber-300/80">Dica: exporte em PNG ou WEBP para manter a transparência.</p>
                   )}
+
+                  {/* Remover fundo */}
+                  <div className="mt-5 pt-4 border-t border-white/10">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-white mb-1">
+                      <Eraser className="h-4 w-4 text-brand-300" /> Remover fundo
+                    </div>
+                    <button disabled={!!bgBusy} onClick={doRemoveAI} className="btn-primary w-full mt-2">
+                      {bgBusy === "ia" ? "Processando…" : "✨ Remover com IA"}
+                    </button>
+                    {bgBusy === "ia" && (
+                      <div className="mt-2">
+                        <ProgressBar value={bgProgress} />
+                        <p className="mt-1 text-[11px] text-white/45 text-center">
+                          {bgProgress != null && bgProgress < 100 ? `Baixando modelo / processando… ${bgProgress}%` : "Finalizando…"}
+                        </p>
+                      </div>
+                    )}
+                    <p className="mt-2 text-[11px] text-white/40">A IA baixa um modelo (~40&nbsp;MB) na primeira vez. Funciona em fotos complexas.</p>
+
+                    <div className="mt-4 text-[11px] uppercase tracking-wide text-white/35">ou por cor (fundo liso)</div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <input type="color" value={bgColor} onChange={(e) => setBgColor(e.target.value)}
+                        className="h-9 w-12 shrink-0 rounded-lg bg-transparent border border-white/10 cursor-pointer" />
+                      <div className="flex-1">
+                        <Slider label="Tolerância" value={bgTol} min={10} max={150} onChange={setBgTol} />
+                      </div>
+                    </div>
+                    <button disabled={!!bgBusy} onClick={doRemoveColor} className="btn-ghost w-full mt-1">
+                      {bgBusy === "cor" ? "Removendo…" : "Remover por cor"}
+                    </button>
+                    <p className="mt-2 text-[11px] text-white/40">Cor detectada automaticamente do canto. Ajuste a tolerância se sobrar ou faltar fundo.</p>
+                  </div>
                 </Panel>
               )}
 
