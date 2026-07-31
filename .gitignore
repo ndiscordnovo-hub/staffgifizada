@@ -13,3 +13,5 @@
 
 # Config local do Claude Code (pessoal)
 .claude/settings.local.json
+/deploy-square
+gifedition-square.zip
