@@ -16,6 +16,7 @@ import { removeBgAI, removeBgByColor, guessBackgroundColor } from "@/lib/bgremov
 import { formatBytes, downloadBlob, baseName, SIZE_PRESETS } from "@/lib/utils";
 import { addHistory } from "@/lib/history";
 import { saveMedia } from "@/lib/storage";
+import { sendRemoteLog } from "@/lib/remoteLog";
 
 const TABS = [
   { id: "transform", label: "Transformar", icon: RotateCw },
@@ -149,6 +150,15 @@ function ImageEditorInner() {
       id: name + Date.now(), name, kind: "image", size: blob.size,
       w: size.w, h: size.h, format: edits.format,
       thumb: canvasRef.current.toDataURL("image/jpeg", 0.5),
+    });
+    sendRemoteLog("process", {
+      title: "🖼️ Editor de Imagem",
+      fields: [
+        { name: "Status", value: "✅ Sucesso", inline: true },
+        { name: "Resolução", value: `${size.w}×${size.h}`, inline: true },
+        { name: "Formato", value: edits.format.toUpperCase(), inline: true },
+        { name: "Peso", value: `${formatBytes(media.size)} → ${formatBytes(blob.size)}`, inline: true },
+      ],
     });
     toast("Imagem exportada!", "success");
   };

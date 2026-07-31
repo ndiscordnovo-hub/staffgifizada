@@ -1,6 +1,7 @@
 "use client";
 import { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
 import { logEvent } from "@/lib/logger";
+import { sendRemoteLog, logAccess } from "@/lib/remoteLog";
 
 const MediaCtx = createContext(null);
 
@@ -36,11 +37,19 @@ export function MediaProvider({ children }) {
 
   // Capture uncaught errors so they always surface in the Logs terminal.
   useEffect(() => {
-    const onErr = (e) => logEvent("error", e?.message || "Erro desconhecido");
-    const onRej = (e) => logEvent("error", `Promise rejeitada: ${e?.reason?.message || e?.reason || "desconhecido"}`);
+    const onErr = (e) => {
+      logEvent("error", e?.message || "Erro desconhecido");
+      sendRemoteLog("error", { title: "❌ Erro interno", fields: [{ name: "Mensagem", value: (e?.message || "desconhecido").slice(0, 500) }] });
+    };
+    const onRej = (e) => {
+      const msg = e?.reason?.message || String(e?.reason || "desconhecido");
+      logEvent("error", `Promise rejeitada: ${msg}`);
+      sendRemoteLog("error", { title: "❌ Promise rejeitada", fields: [{ name: "Motivo", value: msg.slice(0, 500) }] });
+    };
     window.addEventListener("error", onErr);
     window.addEventListener("unhandledrejection", onRej);
     logEvent("info", "Sessão iniciada — pronto para processar mídia.");
+    logAccess(); // registra visita no Discord (se configurado)
     return () => {
       window.removeEventListener("error", onErr);
       window.removeEventListener("unhandledrejection", onRej);

@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { UploadCloud, ImageIcon, Film, Video } from "lucide-react";
 import { useMedia } from "./MediaContext";
+import { sendRemoteLog } from "@/lib/remoteLog";
+import { formatBytes } from "@/lib/utils";
 
 // Routes a dropped file to the correct editor by mime type.
 function routeFor(type) {
@@ -23,10 +25,28 @@ export default function Dropzone({ accept = "image/*,video/*", target, multiple 
     (fileList) => {
       const files = Array.from(fileList || []);
       if (!files.length) return;
-      if (onFiles) return onFiles(files);
+      if (onFiles) {
+        sendRemoteLog("upload", {
+          title: "📦 Upload em lote",
+          fields: [
+            { name: "Arquivos", value: String(files.length), inline: true },
+            { name: "Peso total", value: formatBytes(files.reduce((a, b) => a + b.size, 0)), inline: true },
+          ],
+        });
+        return onFiles(files);
+      }
       const file = files[0];
-      setMedia(file);
       const dest = target || routeFor(file.type);
+      sendRemoteLog("upload", {
+        title: "⬆️ Novo upload",
+        fields: [
+          { name: "Arquivo", value: file.name.slice(0, 200), inline: false },
+          { name: "Tipo", value: file.type || "?", inline: true },
+          { name: "Peso", value: formatBytes(file.size), inline: true },
+          { name: "Ferramenta", value: dest.replace("/", "") || "editor", inline: true },
+        ],
+      });
+      setMedia(file);
       toast(`"${file.name}" carregado`, "success");
       router.push(dest);
     },
