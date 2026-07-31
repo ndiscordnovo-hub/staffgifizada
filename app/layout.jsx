@@ -1,7 +1,7 @@
 import "./globals.css";
 import Link from "next/link";
 import { Inter } from "next/font/google";
-import { MessagesSquare } from "lucide-react";
+import { MessagesSquare, Rocket } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { MediaProvider } from "@/components/MediaContext";
 import Toaster from "@/components/Toaster";
@@ -22,16 +22,25 @@ export default function RootLayout({ children }) {
     <html lang="pt-BR" className={inter.variable}>
       <body>
         <MediaProvider>
-          {/* Divulgação do Discord — canto superior direito (desktop) */}
-          <a
-            href={DISCORD_INVITE}
-            target="_blank"
-            rel="noreferrer"
-            className="hidden lg:flex fixed top-4 right-6 z-40 items-center gap-2 rounded-full glass-strong px-4 py-2 text-sm font-semibold text-white shadow-card border border-brand-400/30 hover:border-brand-400/70 hover:-translate-y-0.5 transition-all"
-          >
-            <MessagesSquare className="h-4 w-4 text-brand-300" />
-            Entrar no Discord
-          </a>
+          {/* Atualizações + Discord — canto superior direito (desktop) */}
+          <div className="hidden lg:flex fixed top-4 right-6 z-40 items-center gap-2">
+            <Link
+              href="/atualizacoes"
+              className="flex items-center gap-2 rounded-full glass-strong px-4 py-2 text-sm font-semibold text-white shadow-card border border-white/15 hover:border-brand-400/60 hover:-translate-y-0.5 transition-all"
+            >
+              <Rocket className="h-4 w-4 text-brand-300" />
+              Atualizações
+            </Link>
+            <a
+              href={DISCORD_INVITE}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 rounded-full glass-strong px-4 py-2 text-sm font-semibold text-white shadow-card border border-brand-400/30 hover:border-brand-400/70 hover:-translate-y-0.5 transition-all"
+            >
+              <MessagesSquare className="h-4 w-4 text-brand-300" />
+              Discord
+            </a>
+          </div>
           <div className="flex flex-col lg:flex-row min-h-screen">
             <Sidebar />
             <main className="flex-1 min-w-0 lg:pl-0 flex flex-col">
