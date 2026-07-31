@@ -5,7 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const SITE = process.argv[2] || process.env.SITE_URL || "https://staffgifizada.vercel.app";
+const SITE = process.argv[2] || process.env.SITE_URL || "https://gifediton.squareweb.app";
 
 const md = fs.readFileSync(path.join(process.cwd(), "CHANGELOG.md"), "utf8");
 
