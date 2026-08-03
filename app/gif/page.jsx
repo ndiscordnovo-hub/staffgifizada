@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Film, Download, Play, Gauge, Repeat, RotateCcw, Sparkles, Package, Loader2, X as XIcon, CheckCircle2 } from "lucide-react";
+import { Film, Download, Play, Gauge, Repeat, RotateCcw, Sparkles, Package, Loader2, X as XIcon, CheckCircle2, Image as ImageIcon } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import ModeChooser from "@/components/ModeChooser";
 import { Panel, Slider, Segmented, ProgressBar, Stat, EmptyState } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
 import { runFFmpeg } from "@/lib/ffmpeg";
+import { loadImage } from "@/lib/imageProcessor";
 import { formatBytes, downloadBlob, baseName, uid } from "@/lib/utils";
 import { makeZip, blobToU8 } from "@/lib/zip";
 import { addHistory } from "@/lib/history";
@@ -110,6 +111,31 @@ export default function GifPage() {
     const entries = await Promise.all(list.map(async (f) => ({ name: f.name, data: await blobToU8(f.blob) })));
     downloadBlob(await makeZip(entries), "gifedition-lote.zip");
     toast("ZIP do lote gerado!", "success");
+  };
+
+  // Conversão EXPLÍCITA: exporta o quadro atual (com os ajustes de cor) em PNG.
+  const exportFramePng = async () => {
+    if (!media) return;
+    try {
+      let src, w, h;
+      if (isVideo) {
+        src = document.querySelector("video");
+        if (!src) return toast("Aguarde o vídeo carregar.", "warn");
+        w = src.videoWidth || 640; h = src.videoHeight || 360;
+      } else {
+        src = await loadImage(media.url);
+        w = src.naturalWidth; h = src.naturalHeight;
+      }
+      if (opts.scale !== 100) { w = Math.round(w * opts.scale / 100); h = Math.round(h * opts.scale / 100); }
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      const ctx = c.getContext("2d");
+      ctx.filter = cssFilter;
+      ctx.drawImage(src, 0, 0, w, h);
+      const blob = await new Promise((r) => c.toBlob(r, "image/png"));
+      downloadBlob(blob, `${baseName(media.name)}.png`);
+      toast("Quadro exportado em PNG!", "success");
+    } catch (e) { console.error(e); toast("Falha ao exportar PNG.", "error"); }
   };
 
   const run = async (mode) => {
@@ -305,10 +331,13 @@ export default function GifPage() {
               <button disabled={busy} onClick={() => run("to-gif")} className="btn-primary w-full mb-2">
                 <Film className="h-4 w-4" /> {isVideo ? "Converter em GIF" : "Otimizar GIF"}
               </button>
-              <button disabled={busy} onClick={() => run("to-video")} className="btn-ghost w-full">
+              <button disabled={busy} onClick={() => run("to-video")} className="btn-ghost w-full mb-2">
                 <Play className="h-4 w-4" /> Converter em vídeo (MP4)
               </button>
-              <p className="mt-3 text-xs text-white/40">Primeira execução baixa o motor FFmpeg (~30&nbsp;MB) uma única vez.</p>
+              <button disabled={busy} onClick={exportFramePng} className="btn-ghost w-full">
+                <ImageIcon className="h-4 w-4" /> Baixar quadro (PNG)
+              </button>
+              <p className="mt-3 text-xs text-white/40">O "Baixar quadro (PNG)" é uma conversão (vira imagem parada). O resto mantém o formato. FFmpeg baixa ~30&nbsp;MB na 1ª vez.</p>
             </Panel>
           )}
         </div>
