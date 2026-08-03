@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   RotateCw, FlipHorizontal2, FlipVertical2, Crop, Sun, Contrast,
@@ -40,6 +40,7 @@ const TABS = [
 function ImageEditorInner() {
   const { media, setMedia, toast } = useMedia();
   const params = useSearchParams();
+  const router = useRouter();
   const canvasRef = useRef(null);
   const [img, setImg] = useState(null);
   const [edits, setEdits] = useState(DEFAULT_EDITS);
@@ -70,8 +71,12 @@ function ImageEditorInner() {
 
   // Enter batch mode: load 2–15 files, preview the first, edit them all together.
   const startBatch = async (files) => {
-    const list = (files || []).filter((f) => f.type.startsWith("image/")).slice(0, 15);
-    if (list.length < 2) { toast("Escolha de 2 a 15 imagens para o lote.", "warn"); return; }
+    const all = files || [];
+    const list = all.filter((f) => ["image/png", "image/jpeg", "image/webp"].includes(f.type)).slice(0, 15);
+    if (all.some((f) => f.type === "image/gif" || f.type.startsWith("video/"))) {
+      toast("GIFs e vídeos vão no editor de GIF/Vídeo (pra manter o formato). Aqui só imagens estáticas.", "warn");
+    }
+    if (list.length < 2) { toast("Escolha de 2 a 15 imagens (PNG, JPG ou WEBP) para o lote.", "warn"); return; }
     const loaded = await Promise.all(list.map(async (f) => {
       const im = await loadImage(f);
       const s = 72, r = im.naturalHeight / im.naturalWidth || 1;
@@ -152,6 +157,12 @@ function ImageEditorInner() {
   useEffect(() => {
     let revoked = false;
     if (!media) { setImg(null); return; }
+    // GIF/vídeo têm editor próprio (pra manter o formato) — redireciona.
+    if (batch.length === 0 && (media.type === "image/gif" || media.type.startsWith("video/"))) {
+      toast(`Esse arquivo é ${media.type === "image/gif" ? "um GIF" : "um vídeo"} — abrindo o editor certo pra manter o formato.`, "info");
+      router.push(media.type === "image/gif" ? "/gif" : "/video");
+      return;
+    }
     loadImage(media.url).then((im) => {
       if (!revoked) {
         setImg(im);

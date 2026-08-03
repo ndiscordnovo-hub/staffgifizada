@@ -1,28 +1,116 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Film, Download, Play, Gauge, Repeat, RotateCcw, Sparkles } from "lucide-react";
+import { Film, Download, Play, Gauge, Repeat, RotateCcw, Sparkles, Package, Loader2, X as XIcon, CheckCircle2 } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import ModeChooser from "@/components/ModeChooser";
 import { Panel, Slider, Segmented, ProgressBar, Stat, EmptyState } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
 import { runFFmpeg } from "@/lib/ffmpeg";
-import { formatBytes, downloadBlob, baseName } from "@/lib/utils";
+import { formatBytes, downloadBlob, baseName, uid } from "@/lib/utils";
+import { makeZip, blobToU8 } from "@/lib/zip";
 import { addHistory } from "@/lib/history";
 import { saveMedia } from "@/lib/storage";
 import { Save } from "lucide-react";
 
+const isVideoFile = (type, name) =>
+  type?.startsWith("video/") || ["mp4", "webm", "mov", "mkv", "avi"].includes((name.split(".").pop() || "").toLowerCase());
+
 export default function GifPage() {
   const { media, setMedia, toast } = useMedia();
-  const [opts, setOpts] = useState({ scale: 100, fps: 15, speed: 1, colors: 128, reverse: false, loop: true });
+  const [opts, setOpts] = useState({ scale: 100, fps: 15, speed: 1, colors: 128, reverse: false, loop: true, brightness: 100, contrast: 100, saturation: 100, sharpen: 0, grayscale: 0 });
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(null);
   const [result, setResult] = useState(null); // { url, size, name }
+  // Batch mode: mesmos ajustes aplicados a vários arquivos, formato preservado.
+  const [batch, setBatch] = useState([]); // [{id,file,name,size,type,progress}]
+  const [batchOuts, setBatchOuts] = useState({});
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [batchReport, setBatchReport] = useState(null);
   const patch = (p) => setOpts((o) => ({ ...o, ...p }));
 
   useEffect(() => () => { if (result?.url) URL.revokeObjectURL(result.url); }, [result]);
 
   const isVideo = media?.type?.startsWith("video/");
+
+  // CSS filter string for the LIVE preview (approximates the FFmpeg result).
+  const cssFilter = `brightness(${opts.brightness}%) contrast(${opts.contrast}%) saturate(${opts.saturation}%) grayscale(${opts.grayscale}%)`;
+
+  // Color/adjust filters translated to FFmpeg (applied to every frame).
+  const colorFilters = () => {
+    const out = [];
+    const b = (opts.brightness - 100) / 100;      // -1..1
+    const c = opts.contrast / 100;                 // 0..2 (1 = normal)
+    let s = opts.saturation / 100;                 // 0..3 (1 = normal)
+    if (opts.grayscale) s *= 1 - opts.grayscale / 100;
+    if (b !== 0 || c !== 1 || s !== 1) out.push(`eq=brightness=${b.toFixed(3)}:contrast=${c.toFixed(3)}:saturation=${s.toFixed(3)}`);
+    if (opts.sharpen > 0) out.push(`unsharp=5:5:${(opts.sharpen / 100 * 1.5).toFixed(2)}:5:5:0`);
+    return out;
+  };
+
+  // FFmpeg args built from the current options — preserving format.
+  const buildArgs = (inName, it) => {
+    const vf = [...colorFilters()];
+    if (opts.scale !== 100) vf.push(`scale=trunc(iw*${opts.scale / 100}/2)*2:-2`);
+    if (opts.speed !== 1) vf.push(`setpts=${(1 / opts.speed).toFixed(3)}*PTS`);
+    if (opts.reverse) vf.push("reverse");
+    if (isVideoFile(it.type, it.name)) {
+      const isWebm = (it.name.split(".").pop() || "").toLowerCase() === "webm";
+      const outExt = isWebm ? "webm" : "mp4";
+      const outName = `out.${outExt}`;
+      const args = ["-i", inName];
+      if (vf.length) args.push("-vf", vf.join(","));
+      args.push("-r", `${opts.fps}`);
+      if (isWebm) args.push("-c:v", "libvpx-vp9", "-crf", "30", "-b:v", "0", "-c:a", "libopus");
+      else args.push("-c:v", "libx264", "-crf", "24", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-movflags", "faststart", "-c:a", "aac");
+      args.push(outName);
+      return { args, outName, outType: isWebm ? "video/webm" : "video/mp4", ext: outExt };
+    }
+    const filter = [`fps=${opts.fps}`, ...vf].join(",");
+    return {
+      args: ["-i", inName, "-vf", `${filter},split[s0][s1];[s0]palettegen=max_colors=${opts.colors}[p];[s1][p]paletteuse=dither=bayer`, "-loop", opts.loop ? "0" : "-1", "out.gif"],
+      outName: "out.gif", outType: "image/gif", ext: "gif",
+    };
+  };
+
+  const startBatch = async (files) => {
+    const list = (files || []).slice(0, 15);
+    if (list.length < 2) { toast("Escolha de 2 a 15 arquivos para o lote.", "warn"); return; }
+    setBatch(list.map((f) => ({ id: uid(), file: f, name: f.name, size: f.size, type: f.type, progress: 0 })));
+    setBatchOuts({}); setBatchReport(null);
+    setMedia(list[0]); setResult(null);
+    toast(`Modo lote: ${list.length} arquivos. Ajuste e clique em "Aplicar a todos".`, "info");
+  };
+  const removeBatch = (id) => setBatch((b) => b.filter((x) => x.id !== id));
+  const exitBatch = () => { setBatch([]); setBatchOuts({}); setBatchReport(null); setMedia(null); setResult(null); };
+  const setItemProg = (id, p) => setBatch((b) => b.map((x) => (x.id === id ? { ...x, progress: p } : x)));
+
+  const applyToAll = async () => {
+    if (!batch.length) return;
+    setBatchBusy(true); setBatchReport(null);
+    const outs = {}; let ok = 0, err = 0;
+    for (const it of batch) {
+      try {
+        const inExt = (it.name.split(".").pop() || "gif").toLowerCase();
+        const inName = `in.${inExt}`;
+        const { args, outName, outType, ext } = buildArgs(inName, it);
+        const blob = await runFFmpeg({ file: it.file, inName, outName, outType, onProgress: (p) => setItemProg(it.id, p), args }); // eslint-disable-line no-await-in-loop
+        outs[it.id] = { blob, size: blob.size, name: `${baseName(it.name)}.${ext}` };
+        ok++;
+      } catch (e) { console.error(e); err++; }
+      setBatchOuts({ ...outs });
+    }
+    setBatchBusy(false); setBatchReport({ ok, err });
+    toast(`Lote aplicado: ${ok} ok${err ? `, ${err} erro(s)` : ""}.`, "success");
+  };
+
+  const downloadBatchZip = async () => {
+    const list = batch.map((it) => batchOuts[it.id]).filter(Boolean);
+    if (!list.length) return;
+    const entries = await Promise.all(list.map(async (f) => ({ name: f.name, data: await blobToU8(f.blob) })));
+    downloadBlob(await makeZip(entries), "gifedition-lote.zip");
+    toast("ZIP do lote gerado!", "success");
+  };
 
   const run = async (mode) => {
     if (!media) return;
@@ -32,7 +120,7 @@ export default function GifPage() {
       const inName = `in.${inExt}`;
       let outName, outType, args, kind;
 
-      const vf = [];
+      const vf = [...colorFilters()];
       if (opts.scale !== 100) vf.push(`scale=trunc(iw*${opts.scale / 100}/2)*2:-2`);
       if (opts.speed !== 1) vf.push(`setpts=${(1 / opts.speed).toFixed(3)}*PTS`);
       if (opts.reverse) vf.push("reverse");
@@ -78,8 +166,8 @@ export default function GifPage() {
         <EmptyState
           icon={Film}
           title="Como você quer trabalhar?"
-          desc="Edite um GIF/vídeo com liberdade total, ou envie vários de uma vez em lote."
-          action={<ModeChooser accept="image/gif,video/*" target="/gif" />}
+          desc="Edite um GIF/vídeo com liberdade total, ou vários de uma vez em lote (mesmos ajustes em todos)."
+          action={<ModeChooser accept="image/gif,video/*" target="/gif" onBatch={startBatch} />}
         />
       </div>
     );
@@ -87,16 +175,16 @@ export default function GifPage() {
 
   return (
     <div className="space-y-6">
-      <Header onNew={() => { setMedia(null); setResult(null); }} />
+      <Header onNew={exitBatch} batchCount={batch.length} />
       <div className="grid lg:grid-cols-[1fr_360px] gap-5 items-start">
         <div className="space-y-4">
           <div className="card p-4">
-            <div className="mb-3 text-sm font-semibold text-white flex items-center gap-2"><Play className="h-4 w-4 text-brand-300" /> Original</div>
+            <div className="mb-3 text-sm font-semibold text-white flex items-center gap-2"><Play className="h-4 w-4 text-brand-300" /> {batch.length > 0 ? "Preview (1º do lote)" : "Original"}</div>
             <div className="grid place-items-center rounded-xl checkerboard p-4 min-h-[220px]">
               {isVideo ? (
-                <video src={media.url} controls className="max-h-[46vh] rounded-lg" />
+                <video src={media.url} controls autoPlay loop muted className="max-h-[46vh] rounded-lg" style={{ filter: cssFilter }} />
               ) : (
-                <img src={media.url} alt="" className="max-h-[46vh] rounded-lg" />
+                <img src={media.url} alt="" className="max-h-[46vh] rounded-lg" style={{ filter: cssFilter }} />
               )}
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2">
@@ -106,7 +194,44 @@ export default function GifPage() {
             </div>
           </div>
 
-          {(busy || result) && (
+          {batch.length > 0 && (
+            <div className="card p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="text-sm font-semibold text-white flex items-center gap-2"><Package className="h-4 w-4 text-brand-300" /> Lote · {batch.length} arquivo(s)</div>
+                {batchReport && <div className="text-xs"><span className="text-emerald-400">{batchReport.ok} ok</span>{batchReport.err ? <span className="text-red-400"> · {batchReport.err} erro</span> : null}</div>}
+              </div>
+              <p className="mb-3 text-[11px] text-amber-300/80">🔒 Os ajustes atuais valem para todos. Formato preservado (GIF→GIF, vídeo→vídeo).</p>
+              <div className="space-y-2 max-h-[42vh] overflow-auto pr-1">
+                {batch.map((it) => {
+                  const out = batchOuts[it.id];
+                  return (
+                    <div key={it.id} className="rounded-xl bg-white/[0.03] border border-white/10 p-2.5">
+                      <div className="flex items-center gap-3">
+                        <div className={`h-8 w-8 shrink-0 grid place-items-center rounded-lg ${out ? "bg-emerald-500/15 text-emerald-400" : "bg-brand-500/15 text-brand-200"}`}>
+                          {out ? <CheckCircle2 className="h-4 w-4" /> : batchBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-xs font-medium text-white/90">{it.name}</div>
+                          <div className="text-[11px] text-white/40">
+                            {(it.type.split("/")[1] || it.name.split(".").pop() || "?").toUpperCase()} · {formatBytes(it.size)}
+                            {out && <span className="text-emerald-400"> → {formatBytes(out.size)}</span>}
+                          </div>
+                        </div>
+                        {out ? (
+                          <button onClick={() => downloadBlob(out.blob, out.name)} className="btn-soft !p-2 shrink-0" title="Baixar"><Download className="h-4 w-4" /></button>
+                        ) : (
+                          !batchBusy && <button onClick={() => removeBatch(it.id)} className="btn-soft !p-2 shrink-0 hover:!text-red-400" title="Remover"><XIcon className="h-4 w-4" /></button>
+                        )}
+                      </div>
+                      {batchBusy && !out && it.progress > 0 && <div className="mt-2"><ProgressBar value={it.progress} /></div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {!batch.length && (busy || result) && (
             <div className="card p-4">
               <div className="mb-3 text-sm font-semibold text-white flex items-center gap-2"><Sparkles className="h-4 w-4 text-brand-300" /> Resultado</div>
               {busy && (
@@ -145,7 +270,15 @@ export default function GifPage() {
         </div>
 
         <div className="space-y-4">
-          <Panel title="Ajustes" icon={Gauge}>
+          <Panel title="Cor (todos os frames)" icon={Gauge}>
+            <Slider label="Brilho" value={opts.brightness} min={0} max={200} unit="%" onChange={(v) => patch({ brightness: v })} onReset={() => patch({ brightness: 100 })} />
+            <Slider label="Contraste" value={opts.contrast} min={0} max={200} unit="%" onChange={(v) => patch({ contrast: v })} onReset={() => patch({ contrast: 100 })} />
+            <Slider label="Saturação" value={opts.saturation} min={0} max={300} unit="%" onChange={(v) => patch({ saturation: v })} onReset={() => patch({ saturation: 100 })} />
+            <Slider label="Nitidez" value={opts.sharpen} min={0} max={100} onChange={(v) => patch({ sharpen: v })} onReset={() => patch({ sharpen: 0 })} />
+            <Slider label="Preto e Branco" value={opts.grayscale} min={0} max={100} unit="%" onChange={(v) => patch({ grayscale: v })} onReset={() => patch({ grayscale: 0 })} />
+          </Panel>
+
+          <Panel title="Ajustes do GIF" icon={Gauge}>
             <Slider label="Tamanho (escala)" value={opts.scale} min={10} max={100} unit="%" onChange={(v) => patch({ scale: v })} />
             <Slider label="FPS" value={opts.fps} min={5} max={30} onChange={(v) => patch({ fps: v })} />
             <Slider label="Velocidade" value={opts.speed} min={0.25} max={3} step={0.25} unit="×" onChange={(v) => patch({ speed: v })} />
@@ -156,29 +289,45 @@ export default function GifPage() {
             </div>
           </Panel>
 
-          <Panel title="Gerar" icon={Sparkles}>
-            <button disabled={busy} onClick={() => run("to-gif")} className="btn-primary w-full mb-2">
-              <Film className="h-4 w-4" /> {isVideo ? "Converter em GIF" : "Otimizar GIF"}
-            </button>
-            <button disabled={busy} onClick={() => run("to-video")} className="btn-ghost w-full">
-              <Play className="h-4 w-4" /> Converter em vídeo (MP4)
-            </button>
-            <p className="mt-3 text-xs text-white/40">Primeira execução baixa o motor FFmpeg (~30&nbsp;MB) uma única vez.</p>
-          </Panel>
+          {batch.length > 0 ? (
+            <Panel title="Aplicar em lote" icon={Package}>
+              <button onClick={applyToAll} disabled={batchBusy || batch.length < 2} className="btn-primary w-full mb-2">
+                {batchBusy ? <><Loader2 className="h-4 w-4 animate-spin" /> Aplicando…</> : <><CheckCircle2 className="h-4 w-4" /> Aplicar a todos ({batch.length})</>}
+              </button>
+              <div className="flex gap-2">
+                <button onClick={exitBatch} className="btn-ghost flex-1"><Film className="h-4 w-4" /> Sair</button>
+                <button onClick={downloadBatchZip} disabled={!Object.keys(batchOuts).length} className="btn-ghost flex-[1.4]"><Package className="h-4 w-4" /> Baixar ZIP</button>
+              </div>
+              <p className="mt-3 text-xs text-white/40">Cada arquivo mantém seu formato. FFmpeg baixa ~30&nbsp;MB na 1ª vez.</p>
+            </Panel>
+          ) : (
+            <Panel title="Gerar" icon={Sparkles}>
+              <button disabled={busy} onClick={() => run("to-gif")} className="btn-primary w-full mb-2">
+                <Film className="h-4 w-4" /> {isVideo ? "Converter em GIF" : "Otimizar GIF"}
+              </button>
+              <button disabled={busy} onClick={() => run("to-video")} className="btn-ghost w-full">
+                <Play className="h-4 w-4" /> Converter em vídeo (MP4)
+              </button>
+              <p className="mt-3 text-xs text-white/40">Primeira execução baixa o motor FFmpeg (~30&nbsp;MB) uma única vez.</p>
+            </Panel>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function Header({ onNew }) {
+function Header({ onNew, batchCount }) {
   return (
     <div className="flex items-end justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2"><Film className="h-6 w-6 text-brand-300" /> Editor de GIF</h1>
-        <p className="mt-1 text-sm text-white/45">Converta, otimize e ajuste GIFs direto no navegador.</p>
+        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+          <Film className="h-6 w-6 text-brand-300" /> Editor de GIF
+          {batchCount > 0 && <span className="rounded-lg bg-brand-500/20 border border-brand-400/40 px-2 py-0.5 text-xs text-brand-200">Lote · {batchCount}</span>}
+        </h1>
+        <p className="mt-1 text-sm text-white/45">{batchCount > 0 ? "Ajuste e aplique os mesmos parâmetros a todos os arquivos." : "Converta, otimize e ajuste GIFs direto no navegador."}</p>
       </div>
-      {onNew && <button onClick={onNew} className="btn-ghost shrink-0"><Film className="h-4 w-4" /> Novo arquivo</button>}
+      {onNew && <button onClick={onNew} className="btn-ghost shrink-0"><Film className="h-4 w-4" /> {batchCount > 0 ? "Sair do lote" : "Novo arquivo"}</button>}
     </div>
   );
 }
