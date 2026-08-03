@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Video, Download, Scissors, Volume2, VolumeX, Film, Sparkles, Gauge, RotateCw } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
+import ModeChooser from "@/components/ModeChooser";
 import { Panel, Slider, Segmented, ProgressBar, Stat, EmptyState } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
 import { runFFmpeg } from "@/lib/ffmpeg";
@@ -96,9 +97,9 @@ export default function VideoPage() {
         <Header />
         <EmptyState
           icon={Video}
-          title="Envie um vídeo"
-          desc="MP4, MOV, AVI, WEBM ou MKV. Corte, comprima, gire, extraia áudio ou converta em GIF."
-          action={<div className="w-full max-w-md"><Dropzone accept="video/*" target="/video" compact /></div>}
+          title="Como você quer trabalhar?"
+          desc="Edite um vídeo com liberdade total, ou envie vários de uma vez em lote."
+          action={<ModeChooser accept="video/*" target="/video" />}
         />
       </div>
     );

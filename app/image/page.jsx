@@ -8,6 +8,7 @@ import {
   SlidersHorizontal, Frame, Layers as LayersIcon, ZoomIn, ZoomOut, RefreshCw, Save, Type, Lock, Unlock, Eraser,
 } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
+import ModeChooser from "@/components/ModeChooser";
 import CropOverlay from "@/components/CropOverlay";
 import { Panel, Slider, Segmented, ToolButton, Stat, EmptyState, ProgressBar } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
@@ -177,9 +178,9 @@ function ImageEditorInner() {
         <Header />
         <EmptyState
           icon={ImageIcon}
-          title="Nenhuma imagem carregada"
-          desc="Envie uma imagem para começar a editar. Redimensione, ajuste cores, corte e exporte."
-          action={<div className="w-full max-w-md"><Dropzone accept="image/*" target="/image" compact /></div>}
+          title="Como você quer trabalhar?"
+          desc="Escolha editar um único arquivo com liberdade total, ou vários de uma vez em lote."
+          action={<ModeChooser accept="image/*" target="/image" />}
         />
       </div>
     );

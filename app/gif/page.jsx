@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Film, Download, Play, Gauge, Repeat, RotateCcw, Sparkles } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
+import ModeChooser from "@/components/ModeChooser";
 import { Panel, Slider, Segmented, ProgressBar, Stat, EmptyState } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
 import { runFFmpeg } from "@/lib/ffmpeg";
@@ -76,9 +77,9 @@ export default function GifPage() {
         <Header />
         <EmptyState
           icon={Film}
-          title="Envie um GIF ou vídeo"
-          desc="Otimize GIFs, converta vídeo em GIF, altere FPS, velocidade e muito mais."
-          action={<div className="w-full max-w-md"><Dropzone accept="image/gif,video/*" target="/gif" compact /></div>}
+          title="Como você quer trabalhar?"
+          desc="Edite um GIF/vídeo com liberdade total, ou envie vários de uma vez em lote."
+          action={<ModeChooser accept="image/gif,video/*" target="/gif" />}
         />
       </div>
     );

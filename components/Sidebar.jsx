@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Home, Image as ImageIcon, Film, Video, Repeat, Gauge,
   Layers, History, Settings, Sparkles, Menu, X, TerminalSquare, FolderHeart, MessagesSquare,
-  Smile, Laugh, QrCode, ShieldCheck, Rocket, Wand2, Search, Star, ChevronDown,
+  Smile, Laugh, QrCode, ShieldCheck, Rocket, Wand2, Search, Star, ChevronDown, LayoutTemplate, Cog,
 } from "lucide-react";
 import { DISCORD_INVITE } from "@/lib/utils";
 
@@ -31,22 +31,28 @@ const GROUPS = [
   },
   {
     id: "recursos", label: "Recursos", icon: FolderHeart, items: [
+      { href: "/templates", label: "Templates", icon: LayoutTemplate },
       { href: "/qrcode", label: "QR Code", icon: QrCode },
       { href: "/saved", label: "Salvos", icon: FolderHeart },
       { href: "/history", label: "Histórico", icon: History },
     ],
   },
   {
-    id: "admin", label: "Administração", icon: ShieldCheck, items: [
-      { href: "/admin", label: "Admin", icon: ShieldCheck },
-      { href: "/logs", label: "Logs", icon: TerminalSquare },
+    id: "sistema", label: "Sistema", icon: Cog, items: [
       { href: "/atualizacoes", label: "Atualizações", icon: Rocket },
       { href: "/settings", label: "Configurações", icon: Settings },
+    ],
+  },
+  {
+    id: "admin", label: "Administração", icon: ShieldCheck, adminOnly: true, items: [
+      { href: "/admin", label: "Painel Admin", icon: ShieldCheck },
+      { href: "/logs", label: "Logs", icon: TerminalSquare },
     ],
   },
 ];
 
 const ALL_ITEMS = [HOME, ...GROUPS.flatMap((g) => g.items)];
+const ADMIN_HREFS = new Set(GROUPS.filter((g) => g.adminOnly).flatMap((g) => g.items.map((i) => i.href)));
 const FAV_KEY = "gifedition.navfav";
 
 function isActive(href, pathname) {
@@ -89,11 +95,13 @@ function NavRow({ item, pathname, onNavigate, favorites, toggleFav, idPrefix }) 
   );
 }
 
-function NavContent({ pathname, onNavigate, query, setQuery, openGroups, toggleGroup, favorites, toggleFav, idPrefix }) {
+function NavContent({ pathname, onNavigate, query, setQuery, openGroups, toggleGroup, favorites, toggleFav, idPrefix, adminUnlocked }) {
   const q = query.trim().toLowerCase();
   const searching = q.length > 0;
-  const results = searching ? ALL_ITEMS.filter((i) => i.label.toLowerCase().includes(q)) : [];
-  const favItems = ALL_ITEMS.filter((i) => favorites.includes(i.href));
+  const searchable = ALL_ITEMS.filter((i) => adminUnlocked || !ADMIN_HREFS.has(i.href));
+  const results = searching ? searchable.filter((i) => i.label.toLowerCase().includes(q)) : [];
+  const favItems = searchable.filter((i) => favorites.includes(i.href));
+  const groups = GROUPS.filter((g) => !g.adminOnly || adminUnlocked);
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
@@ -148,7 +156,7 @@ function NavContent({ pathname, onNavigate, query, setQuery, openGroups, toggleG
             )}
 
             {/* Groups */}
-            {GROUPS.map((g) => {
+            {groups.map((g) => {
               const isOpen = openGroups.includes(g.id);
               const GroupIcon = g.icon;
               const hasActive = g.items.some((i) => isActive(i.href, pathname));
@@ -228,6 +236,14 @@ export default function Sidebar() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [favorites, setFavorites] = useState([]);
+  const [adminUnlocked, setAdminUnlocked] = useState(false);
+
+  useEffect(() => {
+    const sync = () => setAdminUnlocked(sessionStorage.getItem("gifedition.admin") === "1");
+    sync();
+    window.addEventListener("gifedition:admin", sync);
+    return () => window.removeEventListener("gifedition:admin", sync);
+  }, []);
 
   // Open only the group that contains the current route (clean menu by default).
   const activeGroupId = useMemo(() => {
@@ -255,7 +271,7 @@ export default function Sidebar() {
       return next;
     });
 
-  const navProps = { pathname, query, setQuery, openGroups, toggleGroup, favorites, toggleFav };
+  const navProps = { pathname, query, setQuery, openGroups, toggleGroup, favorites, toggleFav, adminUnlocked };
 
   return (
     <>

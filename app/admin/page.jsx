@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ShieldCheck, Send, RefreshCw, CheckCircle2, XCircle, Webhook, Info } from "lucide-react";
+import { ShieldCheck, Send, RefreshCw, CheckCircle2, XCircle, Webhook, Info, KeyRound, Lock } from "lucide-react";
 import { Panel } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
+
+const ADMIN_FLAG = "gifedition.admin";
 
 const CATS = [
   { id: "access", label: "Acessos", env: "WEBHOOK_ACCESS", desc: "Novos visitantes, país, dispositivo" },
@@ -20,6 +22,43 @@ export default function AdminPage() {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [testing, setTesting] = useState(null);
+  const [unlocked, setUnlocked] = useState(false);
+  const [pw, setPw] = useState("");
+  const [authing, setAuthing] = useState(false);
+
+  useEffect(() => {
+    setUnlocked(sessionStorage.getItem(ADMIN_FLAG) === "1");
+  }, []);
+
+  const submitPw = async (e) => {
+    e.preventDefault();
+    setAuthing(true);
+    try {
+      const r = await fetch("/api/admin-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: pw }),
+      });
+      if (r.ok) {
+        sessionStorage.setItem(ADMIN_FLAG, "1");
+        setUnlocked(true);
+        window.dispatchEvent(new Event("gifedition:admin"));
+        toast("Acesso administrativo liberado.", "success");
+      } else {
+        toast("Senha incorreta.", "error");
+      }
+    } catch {
+      toast("Não foi possível verificar a senha.", "error");
+    } finally {
+      setAuthing(false);
+    }
+  };
+
+  const lock = () => {
+    sessionStorage.removeItem(ADMIN_FLAG);
+    setUnlocked(false);
+    window.dispatchEvent(new Event("gifedition:admin"));
+  };
 
   const load = async () => {
     setLoading(true);
@@ -59,6 +98,34 @@ export default function AdminPage() {
     }
   };
 
+  if (!unlocked) {
+    return (
+      <div className="max-w-md mx-auto mt-10">
+        <div className="card p-6 sm:p-8 text-center">
+          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-brand-500/25 to-brand-700/10 border border-white/10">
+            <Lock className="h-7 w-7 text-brand-200" />
+          </div>
+          <h1 className="text-xl font-bold text-white">Área restrita</h1>
+          <p className="mt-1.5 text-sm text-white/50">Digite a senha de administrador para acessar o painel.</p>
+          <form onSubmit={submitPw} className="mt-5 space-y-3">
+            <div className="relative">
+              <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+              <input
+                type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus
+                placeholder="Senha de administrador"
+                className="w-full rounded-xl bg-white/[0.04] border border-white/10 pl-9 pr-3 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-400/60 focus:ring-2 focus:ring-brand-500/20"
+              />
+            </div>
+            <button type="submit" disabled={authing || !pw} className="btn-primary w-full">
+              {authing ? "Verificando…" : "Entrar"}
+            </button>
+          </form>
+          <p className="mt-4 text-[11px] text-white/30">A senha é verificada no servidor e nunca fica exposta no site.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-3xl">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -68,7 +135,10 @@ export default function AdminPage() {
           </h1>
           <p className="mt-1 text-sm text-white/45">Logs do site enviados pro Discord por Webhook (um canal por categoria).</p>
         </div>
-        <button onClick={load} className="btn-ghost shrink-0"><RefreshCw className="h-4 w-4" /> Atualizar</button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={load} className="btn-ghost"><RefreshCw className="h-4 w-4" /> Atualizar</button>
+          <button onClick={lock} className="btn-soft"><Lock className="h-4 w-4" /> Bloquear</button>
+        </div>
       </div>
 
       <Panel title="Webhooks por categoria" icon={Webhook}>
