@@ -6,6 +6,7 @@ import {
   RotateCw, FlipHorizontal2, FlipVertical2, Crop, Sun, Contrast,
   Droplets, Sparkles, Download, Eye, ImageIcon, Maximize, Wand2,
   SlidersHorizontal, Frame, Layers as LayersIcon, ZoomIn, ZoomOut, RefreshCw, Save, Type, Lock, Unlock, Eraser,
+  Package, X as XIcon, Loader2, CheckCircle2,
 } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import ModeChooser from "@/components/ModeChooser";
@@ -14,10 +15,18 @@ import { Panel, Slider, Segmented, ToolButton, Stat, EmptyState, ProgressBar } f
 import { useMedia } from "@/components/MediaContext";
 import { DEFAULT_EDITS, loadImage, render, toBlob, outputSize } from "@/lib/imageProcessor";
 import { removeBgAI, removeBgByColor, guessBackgroundColor } from "@/lib/bgremove";
-import { formatBytes, downloadBlob, baseName, SIZE_PRESETS } from "@/lib/utils";
+import { formatBytes, downloadBlob, baseName, uid, SIZE_PRESETS } from "@/lib/utils";
+import { makeZip, blobToU8 } from "@/lib/zip";
 import { addHistory } from "@/lib/history";
 import { saveMedia } from "@/lib/storage";
 import { sendRemoteLog } from "@/lib/remoteLog";
+
+// Export format that PRESERVES the original image format (batch rule).
+function keepFormat(type) {
+  if (type === "image/jpeg") return "jpeg";
+  if (type === "image/webp") return "webp";
+  return "png";
+}
 
 const TABS = [
   { id: "transform", label: "Transformar", icon: RotateCw },
@@ -45,6 +54,11 @@ function ImageEditorInner() {
   const [bgBusy, setBgBusy] = useState(null); // null | "ia" | "cor"
   const [bgProgress, setBgProgress] = useState(null);
   const [logoImg, setLogoImg] = useState(null);
+  // Batch mode: same edits applied to many files, format preserved.
+  const [batch, setBatch] = useState([]); // [{id,file,name,size,type,w,h,thumb}]
+  const [batchOuts, setBatchOuts] = useState({}); // id -> {blob,size,name}
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [batchReport, setBatchReport] = useState(null);
 
   const onLogoFile = (e) => {
     const f = e.target.files?.[0];
@@ -53,6 +67,56 @@ function ImageEditorInner() {
   };
 
   const patch = (p) => setEdits((e) => ({ ...e, ...p }));
+
+  // Enter batch mode: load 2–15 files, preview the first, edit them all together.
+  const startBatch = async (files) => {
+    const list = (files || []).filter((f) => f.type.startsWith("image/")).slice(0, 15);
+    if (list.length < 2) { toast("Escolha de 2 a 15 imagens para o lote.", "warn"); return; }
+    const loaded = await Promise.all(list.map(async (f) => {
+      const im = await loadImage(f);
+      const s = 72, r = im.naturalHeight / im.naturalWidth || 1;
+      const tc = document.createElement("canvas");
+      tc.width = s; tc.height = Math.max(1, Math.round(s * r));
+      tc.getContext("2d").drawImage(im, 0, 0, tc.width, tc.height);
+      return { id: uid(), file: f, name: f.name, size: f.size, type: f.type, w: im.naturalWidth, h: im.naturalHeight, thumb: tc.toDataURL("image/jpeg", 0.6) };
+    }));
+    setBatch(loaded);
+    setBatchOuts({}); setBatchReport(null);
+    setMedia(list[0]); // primeiro arquivo vira o preview (usa todo o motor do editor)
+    toast(`Modo lote: ${loaded.length} arquivos. Edite e clique em "Aplicar a todos".`, "info");
+  };
+
+  const removeBatch = (id) => setBatch((b) => b.filter((x) => x.id !== id));
+
+  const exitBatch = () => { setBatch([]); setBatchOuts({}); setBatchReport(null); setMedia(null); };
+
+  // Apply the CURRENT edits to every file in the batch (format preserved).
+  const applyToAll = async () => {
+    if (!batch.length) return;
+    setBatchBusy(true); setBatchReport(null);
+    const outs = {}; let ok = 0, err = 0;
+    for (const it of batch) {
+      try {
+        const im = await loadImage(it.file); // eslint-disable-line no-await-in-loop
+        const fmt = keepFormat(it.type);
+        const blob = await toBlob(im, { ...edits, format: fmt }, canvasRef.current); // eslint-disable-line no-await-in-loop
+        const ext = fmt === "jpeg" ? "jpg" : fmt;
+        outs[it.id] = { blob, size: blob.size, name: `${baseName(it.name)}.${ext}` };
+        ok++;
+      } catch (e) { console.error(e); err++; }
+      setBatchOuts({ ...outs });
+    }
+    setBatchBusy(false); setBatchReport({ ok, err });
+    toast(`Lote aplicado: ${ok} ok${err ? `, ${err} erro(s)` : ""}.`, "success");
+  };
+
+  const downloadBatchZip = async () => {
+    const list = batch.map((it) => batchOuts[it.id]).filter(Boolean);
+    if (!list.length) return;
+    const entries = await Promise.all(list.map(async (f) => ({ name: f.name, data: await blobToU8(f.blob) })));
+    downloadBlob(await makeZip(entries), "gifedition-lote.zip");
+    toast("ZIP do lote gerado!", "success");
+  };
 
   // Replace the working image with a transparent-background version.
   const applyCutout = async (blob) => {
@@ -179,8 +243,8 @@ function ImageEditorInner() {
         <EmptyState
           icon={ImageIcon}
           title="Como você quer trabalhar?"
-          desc="Escolha editar um único arquivo com liberdade total, ou vários de uma vez em lote."
-          action={<ModeChooser accept="image/*" target="/image" />}
+          desc="Escolha editar um único arquivo com liberdade total, ou vários de uma vez em lote (mesma edição em todos)."
+          action={<ModeChooser accept="image/*" target="/image" onBatch={startBatch} />}
         />
       </div>
     );
@@ -188,7 +252,7 @@ function ImageEditorInner() {
 
   return (
     <div className="space-y-6">
-      <Header onNew={() => setMedia(null)} />
+      <Header onNew={exitBatch} batchCount={batch.length} />
 
       <div className="grid lg:grid-cols-[1fr_360px] gap-5 items-start">
         {/* Canvas stage */}
@@ -480,31 +544,79 @@ function ImageEditorInner() {
             </motion.div>
           </AnimatePresence>
 
-          {/* Always-visible action bar */}
-          <div className="card p-3 flex gap-2 sticky bottom-4">
-            <button onClick={handleSave} className="btn-ghost flex-1">
-              <Save className="h-4 w-4" /> Salvar
-            </button>
-            <button onClick={handleDownload} className="btn-primary flex-[1.4]">
-              <Download className="h-4 w-4" /> Baixar imagem
-            </button>
-          </div>
+          {/* Batch panel (mass-edit) OR single action bar */}
+          {batch.length > 0 ? (
+            <div className="space-y-3">
+              <Panel title={`Modo Lote · ${batch.length} arquivo(s)`} icon={Package}>
+                <p className="mb-3 text-[11px] text-amber-300/80">🔒 A edição atual (todas as abas) será aplicada a todos — o formato de cada um é preservado.</p>
+                <div className="space-y-2 max-h-[34vh] overflow-auto pr-1">
+                  {batch.map((it) => {
+                    const out = batchOuts[it.id];
+                    return (
+                      <div key={it.id} className="flex items-center gap-3 rounded-xl bg-white/[0.03] border border-white/10 p-2">
+                        <img src={it.thumb} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0 checkerboard" />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-xs font-medium text-white/90">{it.name}</div>
+                          <div className="text-[11px] text-white/40">
+                            {(it.type.split("/")[1] || "?").toUpperCase()} · {formatBytes(it.size)} · {it.w}×{it.h}
+                            {out && <span className="text-emerald-400"> → {formatBytes(out.size)}</span>}
+                          </div>
+                        </div>
+                        {out ? (
+                          <button onClick={() => downloadBlob(out.blob, out.name)} className="btn-soft !p-2 shrink-0" title="Baixar"><Download className="h-4 w-4" /></button>
+                        ) : (
+                          !batchBusy && <button onClick={() => removeBatch(it.id)} className="btn-soft !p-2 shrink-0 hover:!text-red-400" title="Remover"><XIcon className="h-4 w-4" /></button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {batchReport && (
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Stat label="Sucesso" value={batchReport.ok} accent="text-emerald-400" />
+                    <Stat label="Erros" value={batchReport.err} accent={batchReport.err ? "text-red-400" : undefined} />
+                  </div>
+                )}
+              </Panel>
+              <div className="card p-3 flex flex-col gap-2 sticky bottom-4">
+                <button onClick={applyToAll} disabled={batchBusy || batch.length < 2} className="btn-primary w-full">
+                  {batchBusy ? <><Loader2 className="h-4 w-4 animate-spin" /> Aplicando…</> : <><CheckCircle2 className="h-4 w-4" /> Aplicar a todos ({batch.length})</>}
+                </button>
+                <div className="flex gap-2">
+                  <button onClick={exitBatch} className="btn-ghost flex-1"><ImageIcon className="h-4 w-4" /> Sair do lote</button>
+                  <button onClick={downloadBatchZip} disabled={!Object.keys(batchOuts).length} className="btn-ghost flex-[1.4]"><Package className="h-4 w-4" /> Baixar ZIP</button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="card p-3 flex gap-2 sticky bottom-4">
+              <button onClick={handleSave} className="btn-ghost flex-1">
+                <Save className="h-4 w-4" /> Salvar
+              </button>
+              <button onClick={handleDownload} className="btn-primary flex-[1.4]">
+                <Download className="h-4 w-4" /> Baixar imagem
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function Header({ onNew }) {
+function Header({ onNew, batchCount }) {
   return (
     <div className="flex items-end justify-between gap-4">
       <div>
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
           <Wand2 className="h-6 w-6 text-brand-300" /> Editor de Imagens
+          {batchCount > 0 && <span className="rounded-lg bg-brand-500/20 border border-brand-400/40 px-2 py-0.5 text-xs text-brand-200">Lote · {batchCount}</span>}
         </h1>
-        <p className="mt-1 text-sm text-white/45">Corte, ajuste, redimensione e exporte com pré-visualização em tempo real.</p>
+        <p className="mt-1 text-sm text-white/45">
+          {batchCount > 0 ? "Edite normalmente — o que você ajustar vale para todos os arquivos do lote." : "Corte, ajuste, redimensione e exporte com pré-visualização em tempo real."}
+        </p>
       </div>
-      {onNew && <button onClick={onNew} className="btn-ghost shrink-0"><ImageIcon className="h-4 w-4" /> Nova imagem</button>}
+      {onNew && <button onClick={onNew} className="btn-ghost shrink-0"><ImageIcon className="h-4 w-4" /> {batchCount > 0 ? "Sair do lote" : "Nova imagem"}</button>}
     </div>
   );
 }
