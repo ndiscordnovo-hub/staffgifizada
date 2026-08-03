@@ -3,6 +3,20 @@
 Toda atualização com 5+ mudanças é anunciada no canal de **Atualizações** do Discord
 (via `scripts/notify-update.mjs`, que envia o bloco mais recente daqui).
 
+## [1.2.0] - 2026-08-02
+
+### Adicionado
+- Nova página de **Templates**: modelos prontos nos tamanhos certos (Banner, Avatar, Story, YouTube…) que abrem direto no editor.
+- **Modo Arquivo Único × Em Lote** ao entrar nos editores de imagem, GIF e vídeo.
+
+### Melhorias
+- **Menu lateral reorganizado**: categorias em grupos recolhíveis, campo de busca e favoritos com estrela.
+- **Painel Admin** agora protegido por **senha** (verificada no servidor, nunca exposta no site).
+- Grupo **Sistema** (Atualizações + Configurações) sempre visível.
+
+### Correções
+- **Layout do celular** corrigido de vez (conteúdo não fica mais espremido na lateral).
+
 ## [1.1.0] - 2026-07-31
 
 ### Adicionado
