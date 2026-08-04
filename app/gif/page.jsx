@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Film, Download, Play, Gauge, Repeat, RotateCcw, Sparkles, Package, Loader2, X as XIcon, CheckCircle2, Image as ImageIcon } from "lucide-react";
+import { Film, Download, Play, Gauge, Repeat, RotateCcw, Sparkles, Package, Loader2, X as XIcon, CheckCircle2, Image as ImageIcon, Crop } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import ModeChooser from "@/components/ModeChooser";
 import ProcessingOverlay from "@/components/ProcessingOverlay";
+import CropOverlay from "@/components/CropOverlay";
 import { Panel, Slider, Segmented, ProgressBar, Stat, EmptyState } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
 import { runFFmpeg } from "@/lib/ffmpeg";
@@ -20,7 +21,9 @@ const isVideoFile = (type, name) =>
 
 export default function GifPage() {
   const { media, setMedia, toast } = useMedia();
-  const [opts, setOpts] = useState({ scale: 100, fps: 15, speed: 1, colors: 128, reverse: false, loop: true, brightness: 100, contrast: 100, saturation: 100, sharpen: 0, grayscale: 0 });
+  const [opts, setOpts] = useState({ scale: 100, fps: 15, speed: 1, colors: 128, reverse: false, loop: true, brightness: 100, contrast: 100, saturation: 100, sharpen: 0, grayscale: 0, crop: null });
+  const [frameImg, setFrameImg] = useState(null); // 1º quadro (para o overlay de corte)
+  const [cropping, setCropping] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(null);
   const [result, setResult] = useState(null); // { url, size, name }
@@ -34,6 +37,26 @@ export default function GifPage() {
   useEffect(() => () => { if (result?.url) URL.revokeObjectURL(result.url); }, [result]);
 
   const isVideo = media?.type?.startsWith("video/");
+
+  // Open the crop overlay on the 1st frame (works for GIF and video).
+  const openCrop = async () => {
+    if (!media) return;
+    try {
+      let im;
+      if (isVideo) {
+        const v = document.querySelector("video");
+        if (!v || !v.videoWidth) return toast("Aguarde o vídeo carregar.", "warn");
+        const c = document.createElement("canvas");
+        c.width = v.videoWidth; c.height = v.videoHeight;
+        c.getContext("2d").drawImage(v, 0, 0);
+        im = await loadImage(c.toDataURL("image/png"));
+      } else {
+        im = await loadImage(media.url);
+      }
+      setFrameImg(im);
+      setCropping(true);
+    } catch { toast("Não foi possível abrir o corte.", "error"); }
+  };
 
   // CSS filter string for the LIVE preview (approximates the FFmpeg result).
   const cssFilter = `brightness(${opts.brightness}%) contrast(${opts.contrast}%) saturate(${opts.saturation}%) grayscale(${opts.grayscale}%)`;
@@ -50,9 +73,11 @@ export default function GifPage() {
     return out;
   };
 
+  const cropFilter = () => (opts.crop ? [`crop=${opts.crop.w}:${opts.crop.h}:${opts.crop.x}:${opts.crop.y}`] : []);
+
   // FFmpeg args built from the current options — preserving format.
   const buildArgs = (inName, it) => {
-    const vf = [...colorFilters()];
+    const vf = [...cropFilter(), ...colorFilters()];
     if (opts.scale !== 100) vf.push(`scale=trunc(iw*${opts.scale / 100}/2)*2:-2`);
     if (opts.speed !== 1) vf.push(`setpts=${(1 / opts.speed).toFixed(3)}*PTS`);
     if (opts.reverse) vf.push("reverse");
@@ -147,7 +172,7 @@ export default function GifPage() {
       const inName = `in.${inExt}`;
       let outName, outType, args, kind;
 
-      const vf = [...colorFilters()];
+      const vf = [...cropFilter(), ...colorFilters()];
       if (opts.scale !== 100) vf.push(`scale=trunc(iw*${opts.scale / 100}/2)*2:-2`);
       if (opts.speed !== 1) vf.push(`setpts=${(1 / opts.speed).toFixed(3)}*PTS`);
       if (opts.reverse) vf.push("reverse");
@@ -206,6 +231,17 @@ export default function GifPage() {
       <ProcessingOverlay open={busy || batchBusy} progress={busy ? progress : null} title={batchBusy ? "Aplicando no lote…" : "Processando…"} />
       <div className="grid lg:grid-cols-[1fr_360px] gap-5 items-start">
         <div className="space-y-4">
+          {cropping && frameImg ? (
+            <div className="card p-4 lg:p-6">
+              <div className="mb-3 text-sm font-semibold text-white flex items-center gap-2"><Crop className="h-4 w-4 text-brand-300" /> Recortar (vale para todos os quadros)</div>
+              <CropOverlay
+                img={frameImg}
+                initialCrop={opts.crop}
+                onApply={(c) => { patch({ crop: c }); setCropping(false); toast("Corte aplicado — vale para todos os quadros.", "success"); }}
+                onCancel={() => setCropping(false)}
+              />
+            </div>
+          ) : (
           <div className="card p-4">
             <div className="mb-3 text-sm font-semibold text-white flex items-center gap-2"><Play className="h-4 w-4 text-brand-300" /> {batch.length > 0 ? "Preview (1º do lote)" : "Original"}</div>
             <div className="grid place-items-center rounded-xl checkerboard p-4 min-h-[220px]">
@@ -220,7 +256,12 @@ export default function GifPage() {
               <Stat label="Tipo" value={isVideo ? "Vídeo" : "GIF"} />
               <Stat label="Nome" value={media.name.slice(0, 12) + (media.name.length > 12 ? "…" : "")} />
             </div>
+            <div className="mt-3 flex gap-2">
+              <button onClick={openCrop} className={`chip flex-1 justify-center ${opts.crop ? "!border-brand-400/60 !bg-brand-500/20 !text-white" : ""}`}><Crop className="h-3.5 w-3.5" /> {opts.crop ? "Corte ativo" : "Recortar"}</button>
+              {opts.crop && <button onClick={() => patch({ crop: null })} className="chip justify-center hover:!text-red-400"><XIcon className="h-3.5 w-3.5" /> Remover corte</button>}
+            </div>
           </div>
+          )}
 
           {batch.length > 0 && (
             <div className="card p-4">
