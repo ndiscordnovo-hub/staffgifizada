@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Video, Download, Scissors, Volume2, VolumeX, Film, Sparkles, Gauge, RotateCw } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import ModeChooser from "@/components/ModeChooser";
+import ProcessingOverlay from "@/components/ProcessingOverlay";
 import { Panel, Slider, Segmented, ProgressBar, Stat, EmptyState } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
 import { runFFmpeg } from "@/lib/ffmpeg";
@@ -18,13 +19,27 @@ export default function VideoPage() {
   const [opts, setOpts] = useState({
     start: 0, end: 0, scale: 100, fps: 30, crf: 26, rotate: 0,
     audio: "keep", format: "mp4",
+    brightness: 100, contrast: 100, saturation: 100, sharpen: 0, grayscale: 0,
   });
   const [busy, setBusy] = useState(false);
+  const [busyTitle, setBusyTitle] = useState("Processando…");
   const [progress, setProgress] = useState(null);
   const [result, setResult] = useState(null);
   const patch = (p) => setOpts((o) => ({ ...o, ...p }));
 
   useEffect(() => () => { if (result?.url) URL.revokeObjectURL(result.url); }, [result]);
+
+  // Live preview filter + FFmpeg color filters (aplicado a todos os frames).
+  const cssFilter = `brightness(${opts.brightness}%) contrast(${opts.contrast}%) saturate(${opts.saturation}%) grayscale(${opts.grayscale}%)`;
+  const colorFilters = () => {
+    const out = [];
+    const b = (opts.brightness - 100) / 100, c = opts.contrast / 100;
+    let s = opts.saturation / 100;
+    if (opts.grayscale) s *= 1 - opts.grayscale / 100;
+    if (b !== 0 || c !== 1 || s !== 1) out.push(`eq=brightness=${b.toFixed(3)}:contrast=${c.toFixed(3)}:saturation=${s.toFixed(3)}`);
+    if (opts.sharpen > 0) out.push(`unsharp=5:5:${(opts.sharpen / 100 * 1.5).toFixed(2)}:5:5:0`);
+    return out;
+  };
 
   const onLoaded = () => {
     const d = videoRef.current?.duration || 0;
@@ -33,7 +48,7 @@ export default function VideoPage() {
   };
 
   const buildVf = () => {
-    const vf = [];
+    const vf = [...colorFilters()];
     if (opts.scale !== 100) vf.push(`scale=trunc(iw*${opts.scale / 100}/2)*2:-2`);
     if (opts.rotate === 90) vf.push("transpose=1");
     if (opts.rotate === 180) vf.push("transpose=1,transpose=1");
@@ -43,6 +58,7 @@ export default function VideoPage() {
 
   const run = async (mode) => {
     if (!media) return;
+    setBusyTitle(mode === "gif" ? "Convertendo em GIF…" : mode === "audio" ? "Extraindo áudio…" : "Exportando vídeo…");
     setBusy(true); setProgress(0); setResult(null);
     try {
       const inExt = media.name.split(".").pop() || "mp4";
@@ -108,10 +124,11 @@ export default function VideoPage() {
   return (
     <div className="space-y-6">
       <Header onNew={() => { setMedia(null); setResult(null); }} />
+      <ProcessingOverlay open={busy} progress={progress} title={busyTitle} />
       <div className="grid lg:grid-cols-[1fr_360px] gap-5 items-start">
         <div className="space-y-4">
           <div className="card p-4">
-            <video ref={videoRef} src={media.url} controls onLoadedMetadata={onLoaded} className="w-full rounded-xl max-h-[50vh] bg-black" />
+            <video ref={videoRef} src={media.url} controls onLoadedMetadata={onLoaded} className="w-full rounded-xl max-h-[50vh] bg-black" style={{ filter: cssFilter }} />
             <div className="mt-3 grid grid-cols-3 gap-2">
               <Stat label="Peso" value={formatBytes(media.size)} />
               <Stat label="Duração" value={`${dur.toFixed(1)}s`} />
@@ -155,7 +172,15 @@ export default function VideoPage() {
             <Slider label="Fim" value={+opts.end.toFixed(1)} min={0} max={Math.max(0.1, dur)} step={0.1} unit="s" onChange={(v) => patch({ end: Math.max(v, opts.start) })} />
           </Panel>
 
-          <Panel title="Ajustes" icon={Gauge}>
+          <Panel title="Cor (todos os frames)" icon={Gauge}>
+            <Slider label="Brilho" value={opts.brightness} min={0} max={200} unit="%" onChange={(v) => patch({ brightness: v })} onReset={() => patch({ brightness: 100 })} />
+            <Slider label="Contraste" value={opts.contrast} min={0} max={200} unit="%" onChange={(v) => patch({ contrast: v })} onReset={() => patch({ contrast: 100 })} />
+            <Slider label="Saturação" value={opts.saturation} min={0} max={300} unit="%" onChange={(v) => patch({ saturation: v })} onReset={() => patch({ saturation: 100 })} />
+            <Slider label="Nitidez" value={opts.sharpen} min={0} max={100} onChange={(v) => patch({ sharpen: v })} onReset={() => patch({ sharpen: 0 })} />
+            <Slider label="Preto e Branco" value={opts.grayscale} min={0} max={100} unit="%" onChange={(v) => patch({ grayscale: v })} onReset={() => patch({ grayscale: 0 })} />
+          </Panel>
+
+          <Panel title="Ajustes do vídeo" icon={Gauge}>
             <Slider label="Resolução (escala)" value={opts.scale} min={20} max={100} unit="%" onChange={(v) => patch({ scale: v })} />
             <Slider label="FPS" value={opts.fps} min={10} max={60} onChange={(v) => patch({ fps: v })} />
             <Slider label="Compressão (CRF)" value={opts.crf} min={18} max={40} onChange={(v) => patch({ crf: v })} />

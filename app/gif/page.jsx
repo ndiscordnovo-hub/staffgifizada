@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Film, Download, Play, Gauge, Repeat, RotateCcw, Sparkles, Package, Loader2, X as XIcon, CheckCircle2, Image as ImageIcon } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import ModeChooser from "@/components/ModeChooser";
+import ProcessingOverlay from "@/components/ProcessingOverlay";
 import { Panel, Slider, Segmented, ProgressBar, Stat, EmptyState } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
 import { runFFmpeg } from "@/lib/ffmpeg";
@@ -202,6 +203,7 @@ export default function GifPage() {
   return (
     <div className="space-y-6">
       <Header onNew={exitBatch} batchCount={batch.length} />
+      <ProcessingOverlay open={busy || batchBusy} progress={busy ? progress : null} title={batchBusy ? "Aplicando no lote…" : "Processando…"} />
       <div className="grid lg:grid-cols-[1fr_360px] gap-5 items-start">
         <div className="space-y-4">
           <div className="card p-4">
