@@ -1,12 +1,14 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Video, Download, Scissors, Volume2, VolumeX, Film, Sparkles, Gauge, RotateCw } from "lucide-react";
+import { Video, Download, Scissors, Volume2, VolumeX, Film, Sparkles, Gauge, RotateCw, Crop, X as XIcon } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import ModeChooser from "@/components/ModeChooser";
 import ProcessingOverlay from "@/components/ProcessingOverlay";
+import CropOverlay from "@/components/CropOverlay";
 import { Panel, Slider, Segmented, ProgressBar, Stat, EmptyState } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
 import { runFFmpeg } from "@/lib/ffmpeg";
+import { loadImage } from "@/lib/imageProcessor";
 import { formatBytes, downloadBlob, baseName } from "@/lib/utils";
 import { addHistory } from "@/lib/history";
 import { saveMedia } from "@/lib/storage";
@@ -19,8 +21,10 @@ export default function VideoPage() {
   const [opts, setOpts] = useState({
     start: 0, end: 0, scale: 100, fps: 30, crf: 26, rotate: 0,
     audio: "keep", format: "mp4",
-    brightness: 100, contrast: 100, saturation: 100, sharpen: 0, grayscale: 0,
+    brightness: 100, contrast: 100, saturation: 100, sharpen: 0, grayscale: 0, crop: null,
   });
+  const [frameImg, setFrameImg] = useState(null);
+  const [cropping, setCropping] = useState(false);
   const [busy, setBusy] = useState(false);
   const [busyTitle, setBusyTitle] = useState("Processando…");
   const [progress, setProgress] = useState(null);
@@ -47,8 +51,22 @@ export default function VideoPage() {
     setOpts((o) => ({ ...o, end: d }));
   };
 
+  const openCrop = async () => {
+    const v = videoRef.current;
+    if (!v || !v.videoWidth) return toast("Aguarde o vídeo carregar.", "warn");
+    try {
+      const c = document.createElement("canvas");
+      c.width = v.videoWidth; c.height = v.videoHeight;
+      c.getContext("2d").drawImage(v, 0, 0);
+      setFrameImg(await loadImage(c.toDataURL("image/png")));
+      setCropping(true);
+    } catch { toast("Não foi possível abrir o corte.", "error"); }
+  };
+
   const buildVf = () => {
-    const vf = [...colorFilters()];
+    const vf = [];
+    if (opts.crop) vf.push(`crop=${opts.crop.w}:${opts.crop.h}:${opts.crop.x}:${opts.crop.y}`);
+    vf.push(...colorFilters());
     if (opts.scale !== 100) vf.push(`scale=trunc(iw*${opts.scale / 100}/2)*2:-2`);
     if (opts.rotate === 90) vf.push("transpose=1");
     if (opts.rotate === 180) vf.push("transpose=1,transpose=1");
@@ -127,6 +145,12 @@ export default function VideoPage() {
       <ProcessingOverlay open={busy} progress={progress} title={busyTitle} />
       <div className="grid lg:grid-cols-[1fr_360px] gap-5 items-start">
         <div className="space-y-4">
+          {cropping && frameImg ? (
+            <div className="card p-4 lg:p-6">
+              <div className="mb-3 text-sm font-semibold text-white flex items-center gap-2"><Crop className="h-4 w-4 text-brand-300" /> Recortar (vale para todo o vídeo)</div>
+              <CropOverlay img={frameImg} initialCrop={opts.crop} onApply={(c) => { patch({ crop: c }); setCropping(false); toast("Corte aplicado ao vídeo.", "success"); }} onCancel={() => setCropping(false)} />
+            </div>
+          ) : (
           <div className="card p-4">
             <video ref={videoRef} src={media.url} controls onLoadedMetadata={onLoaded} className="w-full rounded-xl max-h-[50vh] bg-black" style={{ filter: cssFilter }} />
             <div className="mt-3 grid grid-cols-3 gap-2">
@@ -134,7 +158,12 @@ export default function VideoPage() {
               <Stat label="Duração" value={`${dur.toFixed(1)}s`} />
               <Stat label="Corte" value={`${(opts.end - opts.start || 0).toFixed(1)}s`} />
             </div>
+            <div className="mt-3 flex gap-2">
+              <button onClick={openCrop} className={`chip flex-1 justify-center ${opts.crop ? "!border-brand-400/60 !bg-brand-500/20 !text-white" : ""}`}><Crop className="h-3.5 w-3.5" /> {opts.crop ? "Corte ativo" : "Recortar"}</button>
+              {opts.crop && <button onClick={() => patch({ crop: null })} className="chip justify-center hover:!text-red-400"><XIcon className="h-3.5 w-3.5" /> Remover</button>}
+            </div>
           </div>
+          )}
 
           {(busy || result) && (
             <div className="card p-4">
