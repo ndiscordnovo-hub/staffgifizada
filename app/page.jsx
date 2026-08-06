@@ -1,107 +1,380 @@
 "use client";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  Sparkles, Layers, Gauge, Repeat, Film, ImageIcon, Video,
-  ShieldCheck, Zap, Wand2, ArrowRight, MessagesSquare,
+  Sparkles, Layers, Gauge, Film, ImageIcon, Video,
 } from "lucide-react";
-import Dropzone from "@/components/Dropzone";
-import { DISCORD_INVITE } from "@/lib/utils";
-
-const QUICK = [
-  { href: "/image?preset=discord-banner", label: "Criar Banner Discord", desc: "600×240 otimizado", icon: ImageIcon, color: "from-brand-500/35 to-brand-800/10" },
-  { href: "/image?preset=discord-avatar", label: "Criar Avatar 512×512", desc: "Perfil perfeito", icon: Sparkles, color: "from-brand-400/30 to-brand-700/10" },
-  { href: "/optimize", label: "Otimizar Imagem", desc: "Menor peso, mesma nitidez", icon: Gauge, color: "from-brand-600/30 to-brand-900/10" },
-  { href: "/gif", label: "Otimizar GIF", desc: "Comprima sem travar", icon: Film, color: "from-brand-500/30 to-brand-700/10" },
-  { href: "/video", label: "Converter Vídeo", desc: "MP4 · WEBM · GIF", icon: Video, color: "from-brand-400/25 to-brand-600/10" },
-  { href: "/convert", label: "Converter GIF", desc: "GIF ⇄ vídeo", icon: Repeat, color: "from-brand-600/30 to-brand-800/10" },
-  { href: "/batch", label: "Processar em lote", desc: "Dezenas de arquivos", icon: Layers, color: "from-brand-500/25 to-brand-900/10" },
-];
+import { DISCORD_INVITE, SITE_VERSION } from "@/lib/utils";
+import { CHANGELOG } from "@/lib/changelog";
 
 const FEATURES = [
-  { icon: ShieldCheck, title: "100% privado", desc: "Processamento no navegador. Seus arquivos nunca são enviados a um servidor." },
-  { icon: Zap, title: "Extremamente rápido", desc: "WebAssembly + Canvas com pré-visualização em tempo real." },
-  { icon: Wand2, title: "Otimização inteligente", desc: "Modos prontos para os limites do Discord (8/10/25MB e Nitro)." },
+  {
+    icon: ImageIcon,
+    title: "Editor de Imagens",
+    desc: "Corte, ajustes de cor, texto, fundo e presets do Discord.",
+    href: "/image",
+    gradient: "from-[#e11d2a] to-[#8f0f19]",
+  },
+  {
+    icon: Film,
+    title: "Editor de GIF",
+    desc: "Ajuste todos os frames, recorte e otimize mantendo o GIF.",
+    href: "/gif",
+    gradient: "from-[#ff5a5f] to-[#e11d2a]",
+  },
+  {
+    icon: Video,
+    title: "Editor de Vídeos",
+    desc: "Corte, comprima, gire e converta em GIF com um clique.",
+    href: "/video",
+    gradient: "from-[#ff8790] to-[#e11d2a]",
+  },
+  {
+    icon: Gauge,
+    title: "Otimização Inteligente",
+    desc: "Reduza o peso para os limites do Discord (8/10/25MB).",
+    href: "/optimize",
+    gradient: "from-[#e11d2a] to-[#b3111d]",
+  },
+  {
+    icon: Sparkles,
+    title: "Assistente IA",
+    desc: "Remova o fundo de fotos automaticamente, no navegador.",
+    href: "/image",
+    gradient: "from-[#ff5a5f] to-[#8f0f19]",
+  },
+  {
+    icon: Layers,
+    title: "Processamento em Lote",
+    desc: "A mesma edição aplicada a vários arquivos de uma vez.",
+    href: "/batch",
+    gradient: "from-[#ff6a6f] to-[#b3111d]",
+  },
 ];
 
-const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
-const item = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } };
+const STATS = [
+  { label: "Arquivos processados", prefix: "+", suffix: "K", raw: 120 },
+  { label: "Usuários ativos", prefix: "+", suffix: "", raw: 3500 },
+  { label: "Ferramentas disponíveis", prefix: "", suffix: "", raw: 12 },
+  { label: "Tempo médio", prefix: "~", suffix: "s", raw: 2 },
+];
+
+function StatCard({ stat, index }) {
+  const ref = useRef(null);
+  const [count, setCount] = useState(0);
+  const [started, setStarted] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) { setStarted(true); io.disconnect(); } },
+      { threshold: 0.3 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!started) return;
+    let t0 = null;
+    let raf;
+    function step(t) {
+      if (!t0) t0 = t;
+      const p = Math.min((t - t0) / 900, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      setCount(Math.floor(stat.raw * ease));
+      if (p < 1) raf = requestAnimationFrame(step);
+      else setCount(stat.raw);
+    }
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [started, stat.raw]);
+
+  let display = stat.prefix;
+  if (stat.suffix === "K") display += count.toLocaleString("pt-BR") + "K";
+  else if (stat.suffix === "s") display += count + "s";
+  else display += count.toLocaleString("pt-BR");
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ delay: index * 0.06, duration: 0.5 }}
+      className="landing-card p-6 text-center"
+    >
+      <div className="text-3xl sm:text-4xl font-extrabold tracking-tight tabular-nums landing-grad-text">
+        {display}
+      </div>
+      <div className="mt-1.5 text-sm text-[#1b1116]/60">{stat.label}</div>
+    </motion.div>
+  );
+}
+
+function WelcomeModal({ onClose }) {
+  const router = useRouter();
+  return (
+    <motion.div
+      className="fixed inset-0 z-[200] grid place-items-center p-5"
+      style={{ background: "rgba(60,20,25,0.35)", backdropFilter: "blur(14px)" }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="w-full max-w-md rounded-3xl p-8 text-center bg-white border border-black/10"
+        style={{
+          boxShadow: "0 50px 100px -30px rgba(120,20,30,0.5)",
+        }}
+        initial={{ y: 16, scale: 0.97 }}
+        animate={{ y: 0, scale: 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 26 }}
+      >
+        <div
+          className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl text-3xl"
+          style={{
+            background: "linear-gradient(120deg,#ff5a5f,#e11d2a,#8f0f19)",
+            boxShadow: "0 16px 34px -12px rgba(225,29,42,0.7), inset 0 1px 0 rgba(255,255,255,0.5)",
+          }}
+        >
+          👋
+        </div>
+        <h3 className="text-xl font-extrabold tracking-tight text-[#1b1116]">Bem-vindo ao GifEdition!</h3>
+        <p className="mt-2.5 text-[#1b1116]/60 text-[15px] leading-relaxed">
+          Edite imagens, GIFs e vídeos com facilidade. Escolha uma categoria no menu ou
+          clique em &ldquo;Começar Agora&rdquo; para iniciar sua primeira edição.
+        </p>
+        <button
+          onClick={() => { onClose(); router.push("/image"); }}
+          className="landing-btn-primary mt-5 w-full text-base py-3 rounded-2xl font-bold"
+        >
+          🚀 Começar Agora
+        </button>
+        <button
+          onClick={onClose}
+          className="mt-3 text-sm text-[#1b1116]/35 hover:text-[#e11d2a] transition-colors underline underline-offset-2"
+        >
+          Não mostrar novamente
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+const container = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
+const featureItem = { hidden: { opacity: 0, y: 22 }, show: { opacity: 1, y: 0, transition: { duration: 0.5 } } };
 
 export default function HomePage() {
+  const [showWelcome, setShowWelcome] = useState(false);
+  const latest = CHANGELOG[0];
+
+  useEffect(() => {
+    if (!localStorage.getItem("gifedition.welcomed")) {
+      setShowWelcome(true);
+    }
+  }, []);
+
+  function closeWelcome() {
+    localStorage.setItem("gifedition.welcomed", "1");
+    setShowWelcome(false);
+  }
+
   return (
-    <div className="space-y-10">
+    <div className="landing-page space-y-14 -mt-4">
+      {/* Ambient blobs */}
+      <div className="landing-aura" aria-hidden="true">
+        <div className="landing-blob b1" />
+        <div className="landing-blob b2" />
+        <div className="landing-blob b3" />
+      </div>
+
       {/* Hero */}
-      <section className="relative">
+      <section className="relative pt-8 sm:pt-12 text-center">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/60">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            A melhor ferramenta de mídia para criadores do Discord
+          <div className="inline-flex items-center gap-2 rounded-full bg-white border border-black/10 px-4 py-1.5 text-xs font-semibold text-[#1b1116]/60 shadow-[0_6px_18px_-12px_rgba(0,0,0,0.2)]">
+            <span className="h-[7px] w-[7px] rounded-full bg-[#e11d2a] shadow-[0_0_12px_#ff5a5f] animate-pulse" />
+            A melhor plataforma de mídia para o Discord
           </div>
-          <h1 className="mt-4 text-4xl sm:text-5xl font-extrabold tracking-tight leading-[1.05]">
-            Edite imagens, GIFs e vídeos <br className="hidden sm:block" />
-            <span className="gradient-text">como um profissional.</span>
-          </h1>
-          <p className="mt-4 max-w-2xl text-white/55">
-            Redimensione, comprima, converta e otimize em segundos. Sem upload, sem espera, sem marca d'água.
-          </p>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} className="mt-8">
-          <Dropzone />
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.06 }}
+          className="mt-6 text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.05] text-[#1b1116]"
+          style={{ textWrap: "balance" }}
+        >
+          Edite imagens, GIFs e vídeos{" "}
+          <span className="landing-grad-text">como um profissional.</span>
+        </motion.h1>
+
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.12 }}
+          className="mt-5 mx-auto max-w-2xl text-[#1b1116]/55 text-base sm:text-lg"
+          style={{ textWrap: "balance" }}
+        >
+          Rapidez, qualidade e praticidade em um só lugar — direto no navegador, sem instalar nada e sem marca d&apos;água.
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.18 }}
+          className="mt-8 flex gap-3 justify-center flex-wrap"
+        >
+          <Link href="/image" className="landing-btn-primary text-base px-7 py-3 rounded-2xl font-bold">
+            🚀 Começar Agora
+          </Link>
+          <a href="#recursos" className="landing-btn-ghost text-base px-7 py-3 rounded-2xl font-bold">
+            📖 Conhecer Recursos
+          </a>
         </motion.div>
       </section>
 
-      {/* Quick tools */}
-      <section>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white">Ferramentas Rápidas</h2>
-          <Link href="/image" className="btn-soft text-xs">Ver tudo <ArrowRight className="h-3.5 w-3.5" /></Link>
+      {/* Features */}
+      <section id="recursos">
+        <div className="text-center mb-10">
+          <span className="text-xs font-bold tracking-[.16em] uppercase text-[#e11d2a]">
+            Tudo em um só lugar
+          </span>
+          <h2 className="mt-3 text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-[#1b1116]" style={{ textWrap: "balance" }}>
+            Ferramentas para todo tipo de mídia
+          </h2>
+          <p className="mt-3 text-[#1b1116]/55">Editores completos e inteligentes, pensados para criadores de conteúdo.</p>
         </div>
-        <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-          {QUICK.map(({ href, label, desc, icon: Icon, color }) => (
-            <motion.div variants={item} key={href}>
-              <Link href={href} className="group card p-4 h-full flex flex-col hover:-translate-y-1 hover:border-brand-400/30 transition-all">
-                <div className={`mb-3 grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br ${color} border border-white/10`}>
-                  <Icon className="h-5 w-5 text-white" />
+        <motion.div
+          variants={container}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.15 }}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+        >
+          {FEATURES.map(({ icon: Icon, title, desc, href, gradient }) => (
+            <motion.div variants={featureItem} key={title}>
+              <Link
+                href={href}
+                className="group landing-card relative p-6 h-full flex flex-col overflow-hidden hover:-translate-y-1.5 transition-all duration-200 hover:shadow-[0_30px_54px_-30px_rgba(180,20,35,0.4)]"
+              >
+                <div
+                  className={`relative mb-4 grid h-[52px] w-[52px] place-items-center rounded-2xl bg-gradient-to-br ${gradient}`}
+                  style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.4), 0 12px 24px -12px rgba(180,20,35,0.5)" }}
+                >
+                  <Icon className="h-6 w-6 text-white" />
                 </div>
-                <div className="font-semibold text-sm text-white group-hover:text-brand-200 transition-colors">{label}</div>
-                <div className="mt-0.5 text-xs text-white/45">{desc}</div>
+                <h3 className="relative font-bold text-lg tracking-tight text-[#1b1116]">{title}</h3>
+                <p className="relative mt-1.5 text-sm text-[#1b1116]/55">{desc}</p>
               </Link>
             </motion.div>
           ))}
         </motion.div>
       </section>
 
-      {/* Features */}
-      <section className="grid md:grid-cols-3 gap-3">
-        {FEATURES.map(({ icon: Icon, title, desc }) => (
-          <div key={title} className="card p-5">
-            <Icon className="h-6 w-6 text-brand-300" />
-            <h3 className="mt-3 font-semibold text-white">{title}</h3>
-            <p className="mt-1 text-sm text-white/50">{desc}</p>
-          </div>
-        ))}
+      {/* Stats */}
+      <section>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {STATS.map((stat, i) => (
+            <StatCard key={stat.label} stat={stat} index={i} />
+          ))}
+        </div>
       </section>
 
-      {/* Discord CTA */}
-      <section>
-        <a href={DISCORD_INVITE} target="_blank" rel="noreferrer"
-          className="group relative block overflow-hidden rounded-3xl border border-brand-400/30 bg-gradient-to-r from-brand-600/25 via-brand-500/15 to-transparent p-6 sm:p-8 hover:border-brand-400/60 transition-all">
-          <div className="pointer-events-none absolute inset-0 -translate-x-full group-hover:animate-shimmer bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
-          <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
-            <div className="flex items-center gap-4">
-              <div className="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-700 shadow-glow shrink-0">
-                <MessagesSquare className="h-7 w-7 text-white" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Entre no nosso servidor do Discord</h3>
-                <p className="mt-0.5 text-sm text-white/55">Suporte, novidades, dicas e a comunidade Staff Gifizada. Bora fazer parte!</p>
-              </div>
-            </div>
-            <span className="btn-primary shrink-0">Entrar agora <ArrowRight className="h-4 w-4" /></span>
-          </div>
-        </a>
+      {/* Changelog + Community */}
+      <section className="grid grid-cols-1 lg:grid-cols-[1.15fr_.85fr] gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 22 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="landing-card p-6"
+        >
+          <h3 className="text-lg font-bold flex items-center gap-2.5 text-[#1b1116]">
+            📣 Últimas novidades
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-lg bg-[#e11d2a14] border border-[#e11d2a44] text-[#e11d2a]">
+              v{latest.version}
+            </span>
+          </h3>
+          <ul className="mt-4 flex flex-col gap-3">
+            {latest.added?.map((t, i) => (
+              <li key={`a${i}`} className="flex gap-3 text-[#1b1116]/55 text-sm">
+                <span className="shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-lg h-fit bg-[#12a15417] text-[#0f8a48] border border-[#12a15440] tracking-wide">
+                  NOVO
+                </span>
+                {t}
+              </li>
+            ))}
+            {latest.improved?.slice(0, 2).map((t, i) => (
+              <li key={`i${i}`} className="flex gap-3 text-[#1b1116]/55 text-sm">
+                <span className="shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-lg h-fit bg-[#e11d2a14] text-[#b3111d] border border-[#e11d2a3a] tracking-wide">
+                  MELHORIA
+                </span>
+                {t}
+              </li>
+            ))}
+          </ul>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 22 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.08 }}
+          className="landing-card p-8 text-center flex flex-col items-center justify-center"
+          style={{
+            background: "radial-gradient(120% 150% at 50% 0%, rgba(88,101,242,0.13), transparent 60%), #fff",
+          }}
+        >
+          <h3 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#1b1116]">
+            Faça parte da comunidade
+          </h3>
+          <p className="mt-2.5 text-[#1b1116]/55 max-w-sm">
+            Entre no nosso Discord para novidades, suporte e dicas com outros criadores.
+          </p>
+          <a
+            href={DISCORD_INVITE}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 mt-5 text-base px-7 py-3 rounded-2xl font-bold text-white cursor-pointer"
+            style={{ background: "#5865F2", boxShadow: "0 14px 30px -12px rgba(88,101,242,0.6)" }}
+          >
+            Entrar no Discord
+          </a>
+        </motion.div>
       </section>
+
+      {/* Final CTA */}
+      <section>
+        <motion.div
+          initial={{ opacity: 0, y: 22 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="landing-card p-8 text-center"
+          style={{
+            background: "radial-gradient(120% 150% at 50% 0%, rgba(225,29,42,0.12), transparent 60%), #fff",
+          }}
+        >
+          <h3 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#1b1116]">
+            Pronto para começar?
+          </h3>
+          <p className="mt-2.5 text-[#1b1116]/55">
+            Escolha uma ferramenta no menu ou envie seu primeiro arquivo agora mesmo.
+          </p>
+          <Link href="/image" className="landing-btn-primary mt-5 text-base px-7 py-3 rounded-2xl font-bold inline-flex">
+            🚀 Começar Agora
+          </Link>
+        </motion.div>
+      </section>
+
+      {/* Welcome Modal */}
+      <AnimatePresence>
+        {showWelcome && <WelcomeModal onClose={closeWelcome} />}
+      </AnimatePresence>
     </div>
   );
 }
