@@ -15,42 +15,42 @@ const FEATURES = [
     title: "Editor de Imagens",
     desc: "Corte, ajustes de cor, texto, fundo e presets do Discord.",
     href: "/image",
-    gradient: "from-[#e11d2a] to-[#8f0f19]",
+    gradient: "from-[#f2555f] to-[#b3121f]",
   },
   {
     icon: Film,
     title: "Editor de GIF",
     desc: "Ajuste todos os frames, recorte e otimize mantendo o GIF.",
     href: "/gif",
-    gradient: "from-[#ff5a5f] to-[#e11d2a]",
+    gradient: "from-[#ff8f96] to-[#e63946]",
   },
   {
     icon: Video,
     title: "Editor de Vídeos",
     desc: "Corte, comprima, gire e converta em GIF com um clique.",
     href: "/video",
-    gradient: "from-[#ff8790] to-[#e11d2a]",
+    gradient: "from-[#ff6a5a] to-[#c31724]",
   },
   {
     icon: Gauge,
     title: "Otimização Inteligente",
     desc: "Reduza o peso para os limites do Discord (8/10/25MB).",
     href: "/optimize",
-    gradient: "from-[#e11d2a] to-[#b3111d]",
+    gradient: "from-[#f2555f] to-[#7a0f18]",
   },
   {
     icon: Sparkles,
     title: "Assistente IA",
     desc: "Remova o fundo de fotos automaticamente, no navegador.",
     href: "/image",
-    gradient: "from-[#ff5a5f] to-[#8f0f19]",
+    gradient: "from-[#ff8f96] to-[#b3121f]",
   },
   {
     icon: Layers,
     title: "Processamento em Lote",
     desc: "A mesma edição aplicada a vários arquivos de uma vez.",
     href: "/batch",
-    gradient: "from-[#ff6a6f] to-[#b3111d]",
+    gradient: "from-[#e63946] to-[#7a0f18]",
   },
 ];
 
@@ -105,12 +105,12 @@ function StatCard({ stat, index }) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.3 }}
       transition={{ delay: index * 0.06, duration: 0.5 }}
-      className="landing-card p-6 text-center"
+      className="card p-6 text-center"
     >
-      <div className="text-3xl sm:text-4xl font-extrabold tracking-tight tabular-nums landing-grad-text">
+      <div className="text-3xl sm:text-4xl font-extrabold tracking-tight tabular-nums gradient-text">
         {display}
       </div>
-      <div className="mt-1.5 text-sm text-[#1b1116]/60">{stat.label}</div>
+      <div className="mt-1.5 text-sm text-white/50">{stat.label}</div>
     </motion.div>
   );
 }
@@ -120,15 +120,16 @@ function WelcomeModal({ onClose }) {
   return (
     <motion.div
       className="fixed inset-0 z-[200] grid place-items-center p-5"
-      style={{ background: "rgba(60,20,25,0.35)", backdropFilter: "blur(14px)" }}
+      style={{ background: "rgba(5,3,5,0.74)", backdropFilter: "blur(16px)" }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
       <motion.div
-        className="w-full max-w-md rounded-3xl p-8 text-center bg-white border border-black/10"
+        className="w-full max-w-md rounded-3xl p-8 text-center border border-white/15"
         style={{
-          boxShadow: "0 50px 100px -30px rgba(120,20,30,0.5)",
+          background: "linear-gradient(180deg,#17131a,#100c12)",
+          boxShadow: "0 40px 90px -30px #000, 0 0 0 1px rgba(255,255,255,0.03) inset",
         }}
         initial={{ y: 16, scale: 0.97 }}
         animate={{ y: 0, scale: 1 }}
@@ -137,26 +138,26 @@ function WelcomeModal({ onClose }) {
         <div
           className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl text-3xl"
           style={{
-            background: "linear-gradient(120deg,#ff5a5f,#e11d2a,#8f0f19)",
-            boxShadow: "0 16px 34px -12px rgba(225,29,42,0.7), inset 0 1px 0 rgba(255,255,255,0.5)",
+            background: "linear-gradient(120deg,#f2555f,#b3121f)",
+            boxShadow: "0 16px 34px -12px rgba(242,85,95,0.7), inset 0 1px 0 rgba(255,255,255,0.4)",
           }}
         >
           👋
         </div>
-        <h3 className="text-xl font-extrabold tracking-tight text-[#1b1116]">Bem-vindo ao GifEdition!</h3>
-        <p className="mt-2.5 text-[#1b1116]/60 text-[15px] leading-relaxed">
+        <h3 className="text-xl font-extrabold tracking-tight">Bem-vindo ao GifEdition!</h3>
+        <p className="mt-2.5 text-white/55 text-[15px] leading-relaxed">
           Edite imagens, GIFs e vídeos com facilidade. Escolha uma categoria no menu ou
           clique em &ldquo;Começar Agora&rdquo; para iniciar sua primeira edição.
         </p>
         <button
           onClick={() => { onClose(); router.push("/image"); }}
-          className="landing-btn-primary mt-5 w-full text-base py-3 rounded-2xl font-bold"
+          className="btn-primary mt-5 w-full text-base py-3 rounded-2xl font-bold"
         >
           🚀 Começar Agora
         </button>
         <button
           onClick={onClose}
-          className="mt-3 text-sm text-[#1b1116]/35 hover:text-[#e11d2a] transition-colors underline underline-offset-2"
+          className="mt-3 text-sm text-white/35 hover:text-white/60 transition-colors underline underline-offset-2"
         >
           Não mostrar novamente
         </button>
@@ -184,7 +185,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="landing-page space-y-14 -mt-4">
+    <div className="space-y-14 -mt-4">
       {/* Ambient blobs */}
       <div className="landing-aura" aria-hidden="true">
         <div className="landing-blob b1" />
@@ -195,8 +196,8 @@ export default function HomePage() {
       {/* Hero */}
       <section className="relative pt-8 sm:pt-12 text-center">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <div className="inline-flex items-center gap-2 rounded-full bg-white border border-black/10 px-4 py-1.5 text-xs font-semibold text-[#1b1116]/60 shadow-[0_6px_18px_-12px_rgba(0,0,0,0.2)]">
-            <span className="h-[7px] w-[7px] rounded-full bg-[#e11d2a] shadow-[0_0_12px_#ff5a5f] animate-pulse" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 text-xs font-semibold text-white/55">
+            <span className="h-[7px] w-[7px] rounded-full bg-[#ff6a5a] shadow-[0_0_12px_#ff6a5a] animate-pulse" />
             A melhor plataforma de mídia para o Discord
           </div>
         </motion.div>
@@ -205,18 +206,18 @@ export default function HomePage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.06 }}
-          className="mt-6 text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.05] text-[#1b1116]"
+          className="mt-6 text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.05]"
           style={{ textWrap: "balance" }}
         >
           Edite imagens, GIFs e vídeos{" "}
-          <span className="landing-grad-text">como um profissional.</span>
+          <span className="gradient-text">como um profissional.</span>
         </motion.h1>
 
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.12 }}
-          className="mt-5 mx-auto max-w-2xl text-[#1b1116]/55 text-base sm:text-lg"
+          className="mt-5 mx-auto max-w-2xl text-white/50 text-base sm:text-lg"
           style={{ textWrap: "balance" }}
         >
           Rapidez, qualidade e praticidade em um só lugar — direto no navegador, sem instalar nada e sem marca d&apos;água.
@@ -228,10 +229,10 @@ export default function HomePage() {
           transition={{ duration: 0.5, delay: 0.18 }}
           className="mt-8 flex gap-3 justify-center flex-wrap"
         >
-          <Link href="/image" className="landing-btn-primary text-base px-7 py-3 rounded-2xl font-bold">
+          <Link href="/image" className="btn-primary text-base px-7 py-3 rounded-2xl font-bold shadow-glow">
             🚀 Começar Agora
           </Link>
-          <a href="#recursos" className="landing-btn-ghost text-base px-7 py-3 rounded-2xl font-bold">
+          <a href="#recursos" className="btn-ghost text-base px-7 py-3 rounded-2xl font-bold">
             📖 Conhecer Recursos
           </a>
         </motion.div>
@@ -240,13 +241,13 @@ export default function HomePage() {
       {/* Features */}
       <section id="recursos">
         <div className="text-center mb-10">
-          <span className="text-xs font-bold tracking-[.16em] uppercase text-[#e11d2a]">
+          <span className="text-xs font-bold tracking-[.16em] uppercase text-[#ff6a5a]">
             Tudo em um só lugar
           </span>
-          <h2 className="mt-3 text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-[#1b1116]" style={{ textWrap: "balance" }}>
+          <h2 className="mt-3 text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight" style={{ textWrap: "balance" }}>
             Ferramentas para todo tipo de mídia
           </h2>
-          <p className="mt-3 text-[#1b1116]/55">Editores completos e inteligentes, pensados para criadores de conteúdo.</p>
+          <p className="mt-3 text-white/50">Editores completos e inteligentes, pensados para criadores de conteúdo.</p>
         </div>
         <motion.div
           variants={container}
@@ -259,16 +260,17 @@ export default function HomePage() {
             <motion.div variants={featureItem} key={title}>
               <Link
                 href={href}
-                className="group landing-card relative p-6 h-full flex flex-col overflow-hidden hover:-translate-y-1.5 transition-all duration-200 hover:shadow-[0_30px_54px_-30px_rgba(180,20,35,0.4)]"
+                className="group card relative p-6 h-full flex flex-col overflow-hidden hover:-translate-y-1.5 hover:border-white/15 transition-all duration-200"
               >
+                <div className="absolute inset-x-[-30%] bottom-[-50%] h-[70%] blur-[46px] opacity-0 group-hover:opacity-50 transition-opacity duration-300 bg-[radial-gradient(circle,#e6394688,transparent_60%)]" />
                 <div
                   className={`relative mb-4 grid h-[52px] w-[52px] place-items-center rounded-2xl bg-gradient-to-br ${gradient}`}
-                  style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.4), 0 12px 24px -12px rgba(180,20,35,0.5)" }}
+                  style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 12px 26px -12px rgba(179,18,31,0.7)" }}
                 >
                   <Icon className="h-6 w-6 text-white" />
                 </div>
-                <h3 className="relative font-bold text-lg tracking-tight text-[#1b1116]">{title}</h3>
-                <p className="relative mt-1.5 text-sm text-[#1b1116]/55">{desc}</p>
+                <h3 className="relative font-bold text-lg tracking-tight">{title}</h3>
+                <p className="relative mt-1.5 text-sm text-white/50">{desc}</p>
               </Link>
             </motion.div>
           ))}
@@ -291,26 +293,26 @@ export default function HomePage() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="landing-card p-6"
+          className="card p-6"
         >
-          <h3 className="text-lg font-bold flex items-center gap-2.5 text-[#1b1116]">
+          <h3 className="text-lg font-bold flex items-center gap-2.5">
             📣 Últimas novidades
-            <span className="text-xs font-bold px-2.5 py-0.5 rounded-lg bg-[#e11d2a14] border border-[#e11d2a44] text-[#e11d2a]">
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-lg bg-[#f2555f22] border border-[#f2555f55] text-[#ff8f96]">
               v{latest.version}
             </span>
           </h3>
           <ul className="mt-4 flex flex-col gap-3">
             {latest.added?.map((t, i) => (
-              <li key={`a${i}`} className="flex gap-3 text-[#1b1116]/55 text-sm">
-                <span className="shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-lg h-fit bg-[#12a15417] text-[#0f8a48] border border-[#12a15440] tracking-wide">
+              <li key={`a${i}`} className="flex gap-3 text-white/55 text-sm">
+                <span className="shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-lg h-fit bg-[#37d67a1e] text-[#7ff0b0] border border-[#37d67a44] tracking-wide">
                   NOVO
                 </span>
                 {t}
               </li>
             ))}
             {latest.improved?.slice(0, 2).map((t, i) => (
-              <li key={`i${i}`} className="flex gap-3 text-[#1b1116]/55 text-sm">
-                <span className="shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-lg h-fit bg-[#e11d2a14] text-[#b3111d] border border-[#e11d2a3a] tracking-wide">
+              <li key={`i${i}`} className="flex gap-3 text-white/55 text-sm">
+                <span className="shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-lg h-fit bg-[#f2555f1e] text-[#ff8f96] border border-[#f2555f44] tracking-wide">
                   MELHORIA
                 </span>
                 {t}
@@ -324,23 +326,23 @@ export default function HomePage() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.08 }}
-          className="landing-card p-8 text-center flex flex-col items-center justify-center"
+          className="card p-8 text-center flex flex-col items-center justify-center"
           style={{
-            background: "radial-gradient(120% 150% at 50% 0%, rgba(88,101,242,0.13), transparent 60%), #fff",
+            background: "radial-gradient(120% 150% at 50% 0%, rgba(88,101,242,0.19), transparent 60%), linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.02))",
           }}
         >
-          <h3 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#1b1116]">
+          <h3 className="text-xl sm:text-2xl font-extrabold tracking-tight">
             Faça parte da comunidade
           </h3>
-          <p className="mt-2.5 text-[#1b1116]/55 max-w-sm">
+          <p className="mt-2.5 text-white/50 max-w-sm">
             Entre no nosso Discord para novidades, suporte e dicas com outros criadores.
           </p>
           <a
             href={DISCORD_INVITE}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 mt-5 text-base px-7 py-3 rounded-2xl font-bold text-white cursor-pointer"
-            style={{ background: "#5865F2", boxShadow: "0 14px 30px -12px rgba(88,101,242,0.6)" }}
+            className="btn mt-5 text-base px-7 py-3 rounded-2xl font-bold text-white"
+            style={{ background: "#5865F2", boxShadow: "0 14px 30px -12px #5865F2" }}
           >
             Entrar no Discord
           </a>
@@ -354,18 +356,18 @@ export default function HomePage() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="landing-card p-8 text-center"
+          className="card p-8 text-center"
           style={{
-            background: "radial-gradient(120% 150% at 50% 0%, rgba(225,29,42,0.12), transparent 60%), #fff",
+            background: "radial-gradient(120% 150% at 50% 0%, rgba(230,57,70,0.19), transparent 60%), linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.02))",
           }}
         >
-          <h3 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#1b1116]">
+          <h3 className="text-xl sm:text-2xl font-extrabold tracking-tight">
             Pronto para começar?
           </h3>
-          <p className="mt-2.5 text-[#1b1116]/55">
+          <p className="mt-2.5 text-white/50">
             Escolha uma ferramenta no menu ou envie seu primeiro arquivo agora mesmo.
           </p>
-          <Link href="/image" className="landing-btn-primary mt-5 text-base px-7 py-3 rounded-2xl font-bold inline-flex">
+          <Link href="/image" className="btn-primary mt-5 text-base px-7 py-3 rounded-2xl font-bold shadow-glow inline-flex">
             🚀 Começar Agora
           </Link>
         </motion.div>
