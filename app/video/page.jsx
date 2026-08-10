@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Video, Download, Scissors, Volume2, VolumeX, Film, Sparkles, Gauge, RotateCw, Crop, X as XIcon, Save } from "lucide-react";
+import { Video, Download, Scissors, Volume2, VolumeX, Film, Sparkles, Gauge, RotateCw, Crop, X as XIcon, Save, FolderOpen, Loader2 } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import ModeChooser from "@/components/ModeChooser";
 import ProcessingOverlay from "@/components/ProcessingOverlay";
@@ -12,6 +12,7 @@ import { loadImage } from "@/lib/imageProcessor";
 import { formatBytes, downloadBlob, baseName } from "@/lib/utils";
 import { addHistory } from "@/lib/history";
 import { saveMedia } from "@/lib/storage";
+import { saveProject, getProject } from "@/lib/projects";
 
 export default function VideoPage() {
   const { media, setMedia, toast } = useMedia();
@@ -28,6 +29,8 @@ export default function VideoPage() {
   const [busyTitle, setBusyTitle] = useState("Processando…");
   const [progress, setProgress] = useState(null);
   const [result, setResult] = useState(null);
+  const [stages, setStages] = useState([]);
+  const [savingProject, setSavingProject] = useState(false);
   const patch = (p) => setOpts((o) => ({ ...o, ...p }));
 
   useEffect(() => () => { if (result?.url) URL.revokeObjectURL(result.url); }, [result]);
@@ -43,6 +46,47 @@ export default function VideoPage() {
     if (opts.sharpen > 0) out.push(`unsharp=5:5:${(opts.sharpen / 100 * 1.5).toFixed(2)}:5:5:0`);
     return out;
   };
+
+  useEffect(() => {
+    const pid = sessionStorage.getItem("gifedition.resume-project");
+    if (!pid) return;
+    sessionStorage.removeItem("gifedition.resume-project");
+    getProject(pid).then((p) => {
+      if (!p) return;
+      const file = new File([p.blob], p.fileName, { type: p.fileType });
+      const url = URL.createObjectURL(file);
+      setMedia(Object.assign(file, { url, file, name: p.fileName, size: p.fileSize, type: p.fileType }));
+      if (p.opts) setOpts((o) => ({ ...o, ...p.opts }));
+      toast("Projeto restaurado!", "success");
+    }).catch(() => {});
+  }, []);
+
+  const handleSaveProject = async () => {
+    if (!media || savingProject) return;
+    setSavingProject(true);
+    try {
+      let thumbnail = null;
+      try {
+        const v = videoRef.current;
+        if (v?.videoWidth) {
+          const c = document.createElement("canvas");
+          c.width = 120; c.height = Math.round(120 * v.videoHeight / v.videoWidth);
+          c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+          thumbnail = c.toDataURL("image/jpeg", 0.6);
+        }
+      } catch {}
+      await saveProject({ name: media.name, editor: "video", file: media.file, opts, thumbnail });
+      toast("Projeto salvo! Acesse em Projetos.", "success");
+    } catch (e) {
+      console.error(e);
+      toast("Erro ao salvar projeto.", "error");
+    } finally {
+      setSavingProject(false);
+    }
+  };
+
+  const updateStage = (id, status, detail) =>
+    setStages((s) => s.map((st) => (st.id === id ? { ...st, status, ...(detail !== undefined ? { detail } : {}) } : st)));
 
   const onLoaded = () => {
     const d = videoRef.current?.duration || 0;
@@ -75,8 +119,16 @@ export default function VideoPage() {
 
   const run = async (mode) => {
     if (!media) return;
+    const pipeStages = [
+      { id: "load", label: "Carregando FFmpeg", status: "waiting" },
+      { id: "process", label: mode === "gif" ? "Convertendo em GIF" : mode === "audio" ? "Extraindo áudio" : "Processando vídeo", status: "waiting" },
+      { id: "optimize", label: "Otimizando saída", status: "waiting" },
+      { id: "generate", label: "Gerando arquivo", status: "waiting" },
+    ];
+    setStages(pipeStages);
     setBusyTitle(mode === "gif" ? "Convertendo em GIF…" : mode === "audio" ? "Extraindo áudio…" : "Exportando vídeo…");
     setBusy(true); setProgress(0); setResult(null);
+    updateStage("load", "loading");
     try {
       const inExt = media.name.split(".").pop() || "mp4";
       const inName = `in.${inExt}`;
@@ -109,18 +161,34 @@ export default function VideoPage() {
         args.push(outName);
       }
 
-      const blob = await runFFmpeg({ file: media.file, inName, outName, args, outType, onProgress: (p) => setProgress(p) });
+      updateStage("load", "done");
+      updateStage("process", "processing");
+
+      const blob = await runFFmpeg({
+        file: media.file, inName, outName, args, outType,
+        onProgress: (p) => {
+          setProgress(p);
+          if (p > 0 && p < 80) updateStage("process", "processing", `${p}%`);
+          if (p >= 80) { updateStage("process", "done"); updateStage("optimize", "optimizing"); }
+        },
+      });
+
+      updateStage("optimize", "done");
+      updateStage("generate", "generating");
       const url = URL.createObjectURL(blob);
       const ext = outName.split(".").pop();
       const name = `${baseName(media.name)}-nebula.${ext}`;
       setResult({ url, size: blob.size, name, blob, kind });
       addHistory({ id: name + Date.now(), name, kind, size: blob.size });
+      updateStage("generate", "done");
       toast("Vídeo processado!", "success");
     } catch (e) {
       console.error(e);
+      setStages((s) => s.map((st) => (st.status !== "done" ? { ...st, status: "error" } : st)));
       toast("Falha ao processar o vídeo.", "error");
     } finally {
       setBusy(false); setProgress(null);
+      setTimeout(() => setStages([]), 600);
     }
   };
 
@@ -141,7 +209,7 @@ export default function VideoPage() {
   return (
     <div className="space-y-6">
       <Header onNew={() => { setMedia(null); setResult(null); }} />
-      <ProcessingOverlay open={busy} progress={progress} title={busyTitle} />
+      <ProcessingOverlay open={busy} progress={progress} title={busyTitle} stages={stages} />
       <div className="grid lg:grid-cols-[1fr_360px] gap-5 items-start">
         <div className="space-y-4">
           {cropping && frameImg ? (
@@ -227,6 +295,10 @@ export default function VideoPage() {
               <button disabled={busy} onClick={() => run("gif")} className="btn-ghost"><Film className="h-4 w-4" /> Em GIF</button>
               <button disabled={busy} onClick={() => run("audio")} className="btn-ghost"><Volume2 className="h-4 w-4" /> Áudio</button>
             </div>
+            <button onClick={handleSaveProject} disabled={savingProject} className="btn-ghost w-full mt-2">
+              {savingProject ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderOpen className="h-4 w-4" />}
+              {savingProject ? "Salvando…" : "Salvar projeto"}
+            </button>
             <p className="mt-3 text-xs text-subtle">Primeira execução baixa o motor FFmpeg (~30&nbsp;MB) uma única vez.</p>
           </Panel>
         </div>

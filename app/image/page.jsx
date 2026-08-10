@@ -6,7 +6,7 @@ import {
   RotateCw, FlipHorizontal2, FlipVertical2, Crop, Sun, Contrast,
   Droplets, Sparkles, Download, Eye, ImageIcon, Maximize, Wand2,
   SlidersHorizontal, Frame, Layers as LayersIcon, ZoomIn, ZoomOut, RefreshCw, Save, Type, Lock, Unlock, Eraser,
-  Package, X as XIcon, Loader2, CheckCircle2,
+  Package, X as XIcon, Loader2, CheckCircle2, FolderOpen,
 } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import ModeChooser from "@/components/ModeChooser";
@@ -21,6 +21,7 @@ import { makeZip, blobToU8 } from "@/lib/zip";
 import { addHistory } from "@/lib/history";
 import { saveMedia } from "@/lib/storage";
 import { sendRemoteLog } from "@/lib/remoteLog";
+import { saveProject, getProject } from "@/lib/projects";
 
 // Export format that PRESERVES the original image format (batch rule).
 function keepFormat(type) {
@@ -64,6 +65,47 @@ function ImageEditorInner() {
   const [batchOuts, setBatchOuts] = useState({}); // id -> {blob,size,name}
   const [batchBusy, setBatchBusy] = useState(false);
   const [batchReport, setBatchReport] = useState(null);
+
+  const [savingProject, setSavingProject] = useState(false);
+
+  useEffect(() => {
+    const pid = sessionStorage.getItem("gifedition.resume-project");
+    if (!pid) return;
+    sessionStorage.removeItem("gifedition.resume-project");
+    getProject(pid).then((p) => {
+      if (!p) return;
+      const file = new File([p.blob], p.fileName, { type: p.fileType });
+      const url = URL.createObjectURL(file);
+      setMedia(Object.assign(file, { url, file, name: p.fileName, size: p.fileSize, type: p.fileType }));
+      if (p.opts) setEdits((e) => ({ ...e, ...p.opts }));
+      toast("Projeto restaurado!", "success");
+    }).catch(() => {});
+  }, []);
+
+  const handleSaveProject = async () => {
+    if (!media || savingProject) return;
+    setSavingProject(true);
+    try {
+      let thumbnail = null;
+      try {
+        if (canvasRef.current) {
+          const c = document.createElement("canvas");
+          const src = canvasRef.current;
+          const r = src.height / src.width;
+          c.width = 120; c.height = Math.round(120 * r);
+          c.getContext("2d").drawImage(src, 0, 0, c.width, c.height);
+          thumbnail = c.toDataURL("image/jpeg", 0.6);
+        }
+      } catch {}
+      await saveProject({ name: media.name, editor: "image", file: media.file, opts: edits, thumbnail });
+      toast("Projeto salvo! Acesse em Projetos.", "success");
+    } catch (e) {
+      console.error(e);
+      toast("Erro ao salvar projeto.", "error");
+    } finally {
+      setSavingProject(false);
+    }
+  };
 
   const onLogoFile = (e) => {
     const f = e.target.files?.[0];
@@ -615,12 +657,18 @@ function ImageEditorInner() {
               </div>
             </div>
           ) : (
-            <div className="card p-3 flex gap-2 sticky bottom-4">
-              <button onClick={handleSave} className="btn-ghost flex-1">
-                <Save className="h-4 w-4" /> Salvar
-              </button>
-              <button onClick={handleDownload} className="btn-primary flex-[1.4]">
-                <Download className="h-4 w-4" /> Baixar imagem
+            <div className="card p-3 flex flex-col gap-2 sticky bottom-4">
+              <div className="flex gap-2">
+                <button onClick={handleSave} className="btn-ghost flex-1">
+                  <Save className="h-4 w-4" /> Salvar
+                </button>
+                <button onClick={handleDownload} className="btn-primary flex-[1.4]">
+                  <Download className="h-4 w-4" /> Baixar imagem
+                </button>
+              </div>
+              <button onClick={handleSaveProject} disabled={savingProject} className="btn-ghost w-full text-xs">
+                {savingProject ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FolderOpen className="h-3.5 w-3.5" />}
+                {savingProject ? "Salvando…" : "Salvar projeto"}
               </button>
             </div>
           )}

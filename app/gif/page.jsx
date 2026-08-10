@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Film, Download, Play, Gauge, Repeat, RotateCcw, Sparkles, Package, Loader2, X as XIcon, CheckCircle2, Image as ImageIcon, Crop, Save, FlipHorizontal2, FlipVertical2, RotateCw, Scissors, Maximize2 } from "lucide-react";
+import { Film, Download, Play, Gauge, Repeat, RotateCcw, Sparkles, Package, Loader2, X as XIcon, CheckCircle2, Image as ImageIcon, Crop, Save, FlipHorizontal2, FlipVertical2, RotateCw, Scissors, Maximize2, FolderOpen } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import ModeChooser from "@/components/ModeChooser";
 import ProcessingOverlay from "@/components/ProcessingOverlay";
@@ -14,6 +14,7 @@ import { formatBytes, downloadBlob, baseName, uid } from "@/lib/utils";
 import { makeZip, blobToU8 } from "@/lib/zip";
 import { addHistory } from "@/lib/history";
 import { saveMedia } from "@/lib/storage";
+import { saveProject, getProject } from "@/lib/projects";
 
 const isVideoFile = (type, name) =>
   type?.startsWith("video/") || ["mp4", "webm", "mov", "mkv", "avi"].includes((name.split(".").pop() || "").toLowerCase());
@@ -37,6 +38,8 @@ export default function GifPage() {
   const [batchOuts, setBatchOuts] = useState({});
   const [batchBusy, setBatchBusy] = useState(false);
   const [batchReport, setBatchReport] = useState(null);
+  const [stages, setStages] = useState([]);
+  const [savingProject, setSavingProject] = useState(false);
   const patch = (p) => setOpts((o) => ({ ...o, ...p }));
 
   useEffect(() => () => { if (result?.url) URL.revokeObjectURL(result.url); }, [result]);
@@ -55,6 +58,54 @@ export default function GifPage() {
     };
     v.src = URL.createObjectURL(media.file);
   }, [media?.url]);
+
+  useEffect(() => {
+    const pid = sessionStorage.getItem("gifedition.resume-project");
+    if (!pid) return;
+    sessionStorage.removeItem("gifedition.resume-project");
+    getProject(pid).then((p) => {
+      if (!p) return;
+      const file = new File([p.blob], p.fileName, { type: p.fileType });
+      const url = URL.createObjectURL(file);
+      setMedia(Object.assign(file, { url, file, name: p.fileName, size: p.fileSize, type: p.fileType }));
+      if (p.opts) setOpts((o) => ({ ...o, ...p.opts }));
+      toast("Projeto restaurado!", "success");
+    }).catch(() => {});
+  }, []);
+
+  const handleSaveProject = async () => {
+    if (!media || savingProject) return;
+    setSavingProject(true);
+    try {
+      let thumbnail = null;
+      try {
+        if (isVideo) {
+          const v = document.querySelector("video");
+          if (v?.videoWidth) {
+            const c = document.createElement("canvas");
+            c.width = 120; c.height = Math.round(120 * v.videoHeight / v.videoWidth);
+            c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+            thumbnail = c.toDataURL("image/jpeg", 0.6);
+          }
+        } else {
+          const img = document.querySelector(".checkerboard img");
+          if (img) {
+            const c = document.createElement("canvas");
+            c.width = 120; c.height = Math.round(120 * img.naturalHeight / img.naturalWidth);
+            c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+            thumbnail = c.toDataURL("image/jpeg", 0.6);
+          }
+        }
+      } catch {}
+      await saveProject({ name: media.name, editor: "gif", file: media.file, opts, thumbnail });
+      toast("Projeto salvo! Acesse em Projetos.", "success");
+    } catch (e) {
+      console.error(e);
+      toast("Erro ao salvar projeto.", "error");
+    } finally {
+      setSavingProject(false);
+    }
+  };
 
   const openCrop = async () => {
     if (!media) return;
@@ -236,9 +287,20 @@ export default function GifPage() {
     }
   };
 
+  const updateStage = (id, status, detail) =>
+    setStages((s) => s.map((st) => (st.id === id ? { ...st, status, ...(detail !== undefined ? { detail } : {}) } : st)));
+
   const run = async (mode) => {
     if (!media) return;
+    const pipeStages = [
+      { id: "load", label: "Carregando FFmpeg", status: "waiting" },
+      { id: "process", label: "Processando mídia", status: "waiting" },
+      { id: "optimize", label: "Otimizando saída", status: "waiting" },
+      { id: "generate", label: "Gerando arquivo", status: "waiting" },
+    ];
+    setStages(pipeStages);
     setBusy(true); setProgress(0); setResult(null);
+    updateStage("load", "loading");
     try {
       const inExt = media.name.split(".").pop() || (isVideo ? "mp4" : "gif");
       const inName = `in.${inExt}`;
@@ -268,20 +330,33 @@ export default function GifPage() {
         ];
       }
 
+      updateStage("load", "done");
+      updateStage("process", "processing");
+
       const blob = await runFFmpeg({
         file: media.file, inName, outName, args, outType,
-        onProgress: (p) => setProgress(p),
+        onProgress: (p) => {
+          setProgress(p);
+          if (p > 0 && p < 80) updateStage("process", "processing", `${p}%`);
+          if (p >= 80) { updateStage("process", "done"); updateStage("optimize", "optimizing"); }
+        },
       });
+
+      updateStage("optimize", "done");
+      updateStage("generate", "generating");
       const url = URL.createObjectURL(blob);
       const name = `${baseName(media.name)}-nebula.${kind === "video" ? "mp4" : "gif"}`;
       setResult({ url, size: blob.size, name, blob });
       addHistory({ id: name + Date.now(), name, kind, size: blob.size, thumb: null });
+      updateStage("generate", "done");
       toast("Processamento concluído!", "success");
     } catch (e) {
       console.error(e);
+      setStages((s) => s.map((st) => (st.status !== "done" ? { ...st, status: "error" } : st)));
       toast("Falha ao processar. Tente um arquivo menor.", "error");
     } finally {
       setBusy(false); setProgress(null);
+      setTimeout(() => setStages([]), 600);
     }
   };
 
@@ -302,7 +377,7 @@ export default function GifPage() {
   return (
     <div className="space-y-6">
       <Header onNew={exitBatch} batchCount={batch.length} />
-      <ProcessingOverlay open={busy || batchBusy} progress={busy ? progress : null} title={batchBusy ? "Aplicando no lote…" : "Processando…"} />
+      <ProcessingOverlay open={busy || batchBusy} progress={busy ? progress : null} title={batchBusy ? "Aplicando no lote…" : "Processando…"} stages={stages} />
       <div className="grid lg:grid-cols-[1fr_360px] gap-5 items-start">
         <div className="space-y-4">
           {cropping && frameImg ? (
@@ -504,8 +579,12 @@ export default function GifPage() {
               <button disabled={busy} onClick={() => run("to-video")} className="btn-ghost w-full mb-2">
                 <Play className="h-4 w-4" /> Converter em vídeo (MP4)
               </button>
-              <button disabled={busy} onClick={exportFramePng} className="btn-ghost w-full">
+              <button disabled={busy} onClick={exportFramePng} className="btn-ghost w-full mb-2">
                 <ImageIcon className="h-4 w-4" /> Baixar quadro (PNG)
+              </button>
+              <button onClick={handleSaveProject} disabled={savingProject} className="btn-ghost w-full">
+                {savingProject ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderOpen className="h-4 w-4" />}
+                {savingProject ? "Salvando…" : "Salvar projeto"}
               </button>
               <p className="mt-3 text-xs text-subtle">FFmpeg baixa ~30&nbsp;MB na 1ª vez.</p>
             </Panel>
