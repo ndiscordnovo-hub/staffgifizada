@@ -146,7 +146,7 @@ export default function CropOverlay({ img, initialCrop, onApply, onCancel }) {
             <div
               key={h}
               onPointerDown={(e) => onPointerDown(e, h)}
-              className={`absolute h-3.5 w-3.5 rounded-full bg-brand-300 border-2 border-ink-900 ${hpos[h]}`}
+              className={`absolute h-3.5 w-3.5 rounded-full bg-brand-300 border-2 border-white ${hpos[h]}`}
             />
           ))}
         </div>

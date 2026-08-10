@@ -77,10 +77,10 @@ export default function SavedPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <FolderHeart className="h-6 w-6 text-brand-300" /> Salvos
+          <h1 className="text-2xl font-bold text-ink flex items-center gap-2">
+            <FolderHeart className="h-6 w-6 text-brand-500" /> Salvos
           </h1>
-          <p className="mt-1 text-sm text-white/45">
+          <p className="mt-1 text-sm text-subtle">
             Sua biblioteca de arquivos. Reabra pra editar de novo ou baixe quando quiser.
           </p>
         </div>
@@ -95,17 +95,17 @@ export default function SavedPage() {
       <div className="flex flex-wrap items-center gap-2">
         {CATS.map((c) => (
           <button key={c.id} onClick={() => setCat(c.id)}
-            className={`chip ${cat === c.id ? "!border-brand-400/60 !bg-brand-500/20 !text-white" : ""}`}>
-            <c.icon className="h-3.5 w-3.5" /> {c.label} <span className="text-white/30">{count(c.id)}</span>
+            className={`chip ${cat === c.id ? "!border-brand-200 !bg-brand-50 !text-brand-500" : ""}`}>
+            <c.icon className="h-3.5 w-3.5" /> {c.label} <span className="text-subtle">{count(c.id)}</span>
           </button>
         ))}
-        <span className="ml-auto flex items-center gap-1.5 text-xs text-white/40">
+        <span className="ml-auto flex items-center gap-1.5 text-xs text-subtle">
           <HardDrive className="h-3.5 w-3.5" /> {formatBytes(totalBytes)} usados
         </span>
       </div>
 
       {loading ? (
-        <div className="text-white/40 text-sm">Carregando biblioteca…</div>
+        <div className="text-subtle text-sm">Carregando biblioteca…</div>
       ) : visible.length === 0 ? (
         <EmptyState
           icon={FolderHeart}
@@ -123,7 +123,7 @@ export default function SavedPage() {
                     <video src={urls[it.id]} className="h-full w-full object-cover" muted loop
                       onMouseEnter={(e) => e.currentTarget.play()} onMouseLeave={(e) => e.currentTarget.pause()} />
                   ) : it.kind === "audio" ? (
-                    <Music className="h-10 w-10 text-brand-200" />
+                    <Music className="h-10 w-10 text-brand-500" />
                   ) : (
                     <img src={urls[it.id]} alt={it.name} className="h-full w-full object-cover" />
                   )}
@@ -131,12 +131,12 @@ export default function SavedPage() {
                   <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={() => openInEditor(it)} title="Editar" className="btn-primary !px-3 !py-2"><Pencil className="h-4 w-4" /></button>
                     <button onClick={() => downloadBlob(it.blob, it.name)} title="Baixar" className="btn-ghost !px-3 !py-2"><Download className="h-4 w-4" /></button>
-                    <button onClick={() => remove(it.id)} title="Excluir" className="btn-ghost !px-3 !py-2 hover:!text-red-400"><Trash2 className="h-4 w-4" /></button>
+                    <button onClick={() => remove(it.id)} title="Excluir" className="btn-ghost !px-3 !py-2 hover:!text-red-500"><Trash2 className="h-4 w-4" /></button>
                   </div>
                 </div>
                 <div className="p-3">
-                  <div className="truncate text-sm font-medium text-white">{it.name}</div>
-                  <div className="mt-0.5 text-xs text-white/40">
+                  <div className="truncate text-sm font-medium text-ink">{it.name}</div>
+                  <div className="mt-0.5 text-xs text-subtle">
                     {formatBytes(it.size)}{it.w ? ` · ${it.w}×${it.h}` : ""}
                   </div>
                 </div>
@@ -146,7 +146,7 @@ export default function SavedPage() {
         </div>
       )}
 
-      <p className="text-xs text-white/35">
+      <p className="text-xs text-subtle">
         Os arquivos ficam guardados no seu navegador (IndexedDB) — não são enviados a nenhum servidor.
       </p>
     </div>

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Film, Download, Play, Gauge, Repeat, RotateCcw, Sparkles, Package, Loader2, X as XIcon, CheckCircle2, Image as ImageIcon, Crop } from "lucide-react";
+import { Film, Download, Play, Gauge, Repeat, RotateCcw, Sparkles, Package, Loader2, X as XIcon, CheckCircle2, Image as ImageIcon, Crop, Save } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import ModeChooser from "@/components/ModeChooser";
 import ProcessingOverlay from "@/components/ProcessingOverlay";
@@ -14,7 +14,6 @@ import { formatBytes, downloadBlob, baseName, uid } from "@/lib/utils";
 import { makeZip, blobToU8 } from "@/lib/zip";
 import { addHistory } from "@/lib/history";
 import { saveMedia } from "@/lib/storage";
-import { Save } from "lucide-react";
 
 const isVideoFile = (type, name) =>
   type?.startsWith("video/") || ["mp4", "webm", "mov", "mkv", "avi"].includes((name.split(".").pop() || "").toLowerCase());
@@ -115,24 +114,35 @@ export default function GifPage() {
   const applyToAll = async () => {
     if (!batch.length) return;
     setBatchBusy(true); setBatchReport(null);
-    const outs = {}; let ok = 0, err = 0;
-    for (const it of batch) {
-      try {
-        const inExt = (it.name.split(".").pop() || "gif").toLowerCase();
-        const inName = `in.${inExt}`;
-        const { args, outName, outType, ext } = buildArgs(inName, it);
-        const blob = await runFFmpeg({ file: it.file, inName, outName, outType, onProgress: (p) => setItemProg(it.id, p), args }); // eslint-disable-line no-await-in-loop
-        outs[it.id] = { blob, size: blob.size, name: `${baseName(it.name)}.${ext}` };
-        ok++;
-      } catch (e) { console.error(e); err++; }
-      setBatchOuts({ ...outs });
+    const outs = {}; const errors = []; let ok = 0;
+    try {
+      for (const it of batch) {
+        try {
+          const inExt = (it.name.split(".").pop() || "gif").toLowerCase();
+          const inName = `in.${inExt}`;
+          const { args, outName, outType, ext } = buildArgs(inName, it);
+          const blob = await runFFmpeg({ file: it.file, inName, outName, outType, onProgress: (p) => setItemProg(it.id, p), args }); // eslint-disable-line no-await-in-loop
+          outs[it.id] = { blob, size: blob.size, name: `${baseName(it.name)}.${ext}` };
+          ok++;
+        } catch (e) {
+          console.error(e);
+          errors.push(it.name);
+          outs[it.id] = { error: e?.message || "Falha ao processar" };
+        }
+        setBatchOuts({ ...outs });
+      }
+    } finally {
+      setBatchBusy(false);
+      setBatchReport({ ok, err: errors.length, errors });
+      const msg = errors.length
+        ? `Lote: ${ok} ok, ${errors.length} erro(s): ${errors.join(", ")}`
+        : `Lote aplicado: ${ok} arquivo(s) com sucesso!`;
+      toast(msg, errors.length ? "warn" : "success");
     }
-    setBatchBusy(false); setBatchReport({ ok, err });
-    toast(`Lote aplicado: ${ok} ok${err ? `, ${err} erro(s)` : ""}.`, "success");
   };
 
   const downloadBatchZip = async () => {
-    const list = batch.map((it) => batchOuts[it.id]).filter(Boolean);
+    const list = batch.map((it) => batchOuts[it.id]).filter((o) => o?.blob);
     if (!list.length) return;
     const entries = await Promise.all(list.map(async (f) => ({ name: f.name, data: await blobToU8(f.blob) })));
     downloadBlob(await makeZip(entries), "gifedition-lote.zip");
@@ -179,7 +189,7 @@ export default function GifPage() {
 
       if (mode === "to-video") {
         outName = "out.mp4"; outType = "video/mp4"; kind = "video";
-        args = ["-i", inName, "-movflags", "faststart", "-pix_fmt", "yuv420p"];
+        args = ["-i", inName, "-c:v", "libx264", "-crf", "23", "-preset", "veryfast", "-movflags", "faststart", "-pix_fmt", "yuv420p"];
         if (vf.length) args.push("-vf", vf.join(","));
         args.push(outName);
       } else {
@@ -233,7 +243,7 @@ export default function GifPage() {
         <div className="space-y-4">
           {cropping && frameImg ? (
             <div className="card p-4 lg:p-6">
-              <div className="mb-3 text-sm font-semibold text-white flex items-center gap-2"><Crop className="h-4 w-4 text-brand-300" /> Recortar (vale para todos os quadros)</div>
+              <div className="mb-3 text-sm font-semibold text-ink flex items-center gap-2"><Crop className="h-4 w-4 text-brand-500" /> Recortar (vale para todos os quadros)</div>
               <CropOverlay
                 img={frameImg}
                 initialCrop={opts.crop}
@@ -243,7 +253,7 @@ export default function GifPage() {
             </div>
           ) : (
           <div className="card p-4">
-            <div className="mb-3 text-sm font-semibold text-white flex items-center gap-2"><Play className="h-4 w-4 text-brand-300" /> {batch.length > 0 ? "Preview (1º do lote)" : "Original"}</div>
+            <div className="mb-3 text-sm font-semibold text-ink flex items-center gap-2"><Play className="h-4 w-4 text-brand-500" /> {batch.length > 0 ? "Preview (1º do lote)" : "Original"}</div>
             <div className="grid place-items-center rounded-xl checkerboard p-4 min-h-[220px]">
               {isVideo ? (
                 <video src={media.url} controls autoPlay loop muted className="max-h-[46vh] rounded-lg" style={{ filter: cssFilter }} />
@@ -257,8 +267,8 @@ export default function GifPage() {
               <Stat label="Nome" value={media.name.slice(0, 12) + (media.name.length > 12 ? "…" : "")} />
             </div>
             <div className="mt-3 flex gap-2">
-              <button onClick={openCrop} className={`chip flex-1 justify-center ${opts.crop ? "!border-brand-400/60 !bg-brand-500/20 !text-white" : ""}`}><Crop className="h-3.5 w-3.5" /> {opts.crop ? "Corte ativo" : "Recortar"}</button>
-              {opts.crop && <button onClick={() => patch({ crop: null })} className="chip justify-center hover:!text-red-400"><XIcon className="h-3.5 w-3.5" /> Remover corte</button>}
+              <button onClick={openCrop} className={`chip flex-1 justify-center ${opts.crop ? "!border-brand-200 !bg-brand-50 !text-brand-500" : ""}`}><Crop className="h-3.5 w-3.5" /> {opts.crop ? "Corte ativo" : "Recortar"}</button>
+              {opts.crop && <button onClick={() => patch({ crop: null })} className="chip justify-center hover:!text-red-500"><XIcon className="h-3.5 w-3.5" /> Remover corte</button>}
             </div>
           </div>
           )}
@@ -266,30 +276,30 @@ export default function GifPage() {
           {batch.length > 0 && (
             <div className="card p-4">
               <div className="mb-2 flex items-center justify-between">
-                <div className="text-sm font-semibold text-white flex items-center gap-2"><Package className="h-4 w-4 text-brand-300" /> Lote · {batch.length} arquivo(s)</div>
-                {batchReport && <div className="text-xs"><span className="text-emerald-400">{batchReport.ok} ok</span>{batchReport.err ? <span className="text-red-400"> · {batchReport.err} erro</span> : null}</div>}
+                <div className="text-sm font-semibold text-ink flex items-center gap-2"><Package className="h-4 w-4 text-brand-500" /> Lote · {batch.length} arquivo(s)</div>
+                {batchReport && <div className="text-xs"><span className="text-emerald-500">{batchReport.ok} ok</span>{batchReport.err ? <span className="text-red-500"> · {batchReport.err} erro</span> : null}</div>}
               </div>
-              <p className="mb-3 text-[11px] text-amber-300/80">🔒 Os ajustes atuais valem para todos. Formato preservado (GIF→GIF, vídeo→vídeo).</p>
+              <p className="mb-3 text-[11px] text-amber-600">🔒 Os ajustes atuais valem para todos. Formato preservado (GIF→GIF, vídeo→vídeo).</p>
               <div className="space-y-2 max-h-[42vh] overflow-auto pr-1">
                 {batch.map((it) => {
                   const out = batchOuts[it.id];
                   return (
-                    <div key={it.id} className="rounded-xl bg-white/[0.03] border border-white/10 p-2.5">
+                    <div key={it.id} className="rounded-xl bg-[#F6F5F6] border border-line p-2.5">
                       <div className="flex items-center gap-3">
-                        <div className={`h-8 w-8 shrink-0 grid place-items-center rounded-lg ${out ? "bg-emerald-500/15 text-emerald-400" : "bg-brand-500/15 text-brand-200"}`}>
+                        <div className={`h-8 w-8 shrink-0 grid place-items-center rounded-lg ${out ? "bg-emerald-50 text-emerald-500" : "bg-brand-50 text-brand-500"}`}>
                           {out ? <CheckCircle2 className="h-4 w-4" /> : batchBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" />}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-xs font-medium text-white/90">{it.name}</div>
-                          <div className="text-[11px] text-white/40">
+                          <div className="truncate text-xs font-medium text-ink">{it.name}</div>
+                          <div className="text-[11px] text-subtle">
                             {(it.type.split("/")[1] || it.name.split(".").pop() || "?").toUpperCase()} · {formatBytes(it.size)}
-                            {out && <span className="text-emerald-400"> → {formatBytes(out.size)}</span>}
+                            {out && <span className="text-emerald-500"> → {formatBytes(out.size)}</span>}
                           </div>
                         </div>
                         {out ? (
                           <button onClick={() => downloadBlob(out.blob, out.name)} className="btn-soft !p-2 shrink-0" title="Baixar"><Download className="h-4 w-4" /></button>
                         ) : (
-                          !batchBusy && <button onClick={() => removeBatch(it.id)} className="btn-soft !p-2 shrink-0 hover:!text-red-400" title="Remover"><XIcon className="h-4 w-4" /></button>
+                          !batchBusy && <button onClick={() => removeBatch(it.id)} className="btn-soft !p-2 shrink-0 hover:!text-red-500" title="Remover"><XIcon className="h-4 w-4" /></button>
                         )}
                       </div>
                       {batchBusy && !out && it.progress > 0 && <div className="mt-2"><ProgressBar value={it.progress} /></div>}
@@ -302,11 +312,11 @@ export default function GifPage() {
 
           {!batch.length && (busy || result) && (
             <div className="card p-4">
-              <div className="mb-3 text-sm font-semibold text-white flex items-center gap-2"><Sparkles className="h-4 w-4 text-brand-300" /> Resultado</div>
+              <div className="mb-3 text-sm font-semibold text-ink flex items-center gap-2"><Sparkles className="h-4 w-4 text-brand-500" /> Resultado</div>
               {busy && (
                 <div className="py-6">
                   <ProgressBar value={progress} />
-                  <p className="mt-3 text-center text-sm text-white/50">
+                  <p className="mt-3 text-center text-sm text-muted">
                     {progress != null ? `Processando… ${progress}%` : "Carregando FFmpeg…"}
                   </p>
                 </div>
@@ -321,8 +331,8 @@ export default function GifPage() {
                     )}
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2">
-                    <Stat label="Novo peso" value={formatBytes(result.size)} accent={result.size < media.size ? "text-emerald-400" : "text-amber-300"} />
-                    <Stat label="Economia" value={`${Math.max(0, Math.round((1 - result.size / media.size) * 100))}%`} accent="text-emerald-400" />
+                    <Stat label="Novo peso" value={formatBytes(result.size)} accent={result.size < media.size ? "text-emerald-500" : "text-amber-500"} />
+                    <Stat label="Economia" value={`${Math.max(0, Math.round((1 - result.size / media.size) * 100))}%`} accent="text-emerald-500" />
                   </div>
                   <div className="flex gap-2 mt-3">
                     <button onClick={async () => { await saveMedia({ name: result.name, kind: result.name.endsWith(".mp4") ? "video" : "gif", type: result.blob.type, blob: result.blob }); toast("Salvo na biblioteca!", "success"); }} className="btn-ghost flex-1">
@@ -353,8 +363,8 @@ export default function GifPage() {
             <Slider label="Velocidade" value={opts.speed} min={0.25} max={3} step={0.25} unit="×" onChange={(v) => patch({ speed: v })} />
             <Slider label="Cores (qualidade)" value={opts.colors} min={16} max={256} step={16} onChange={(v) => patch({ colors: v })} />
             <div className="flex gap-2 mt-1">
-              <button onClick={() => patch({ reverse: !opts.reverse })} className={`chip flex-1 justify-center ${opts.reverse ? "!border-brand-400/60 !bg-brand-500/20 !text-white" : ""}`}><Repeat className="h-3.5 w-3.5" /> Inverter</button>
-              <button onClick={() => patch({ loop: !opts.loop })} className={`chip flex-1 justify-center ${opts.loop ? "!border-brand-400/60 !bg-brand-500/20 !text-white" : ""}`}><RotateCcw className="h-3.5 w-3.5" /> Loop infinito</button>
+              <button onClick={() => patch({ reverse: !opts.reverse })} className={`chip flex-1 justify-center ${opts.reverse ? "!border-brand-200 !bg-brand-50 !text-brand-500" : ""}`}><Repeat className="h-3.5 w-3.5" /> Inverter</button>
+              <button onClick={() => patch({ loop: !opts.loop })} className={`chip flex-1 justify-center ${opts.loop ? "!border-brand-200 !bg-brand-50 !text-brand-500" : ""}`}><RotateCcw className="h-3.5 w-3.5" /> Loop infinito</button>
             </div>
           </Panel>
 
@@ -367,7 +377,7 @@ export default function GifPage() {
                 <button onClick={exitBatch} className="btn-ghost flex-1"><Film className="h-4 w-4" /> Sair</button>
                 <button onClick={downloadBatchZip} disabled={!Object.keys(batchOuts).length} className="btn-ghost flex-[1.4]"><Package className="h-4 w-4" /> Baixar ZIP</button>
               </div>
-              <p className="mt-3 text-xs text-white/40">Cada arquivo mantém seu formato. FFmpeg baixa ~30&nbsp;MB na 1ª vez.</p>
+              <p className="mt-3 text-xs text-subtle">Cada arquivo mantém seu formato. FFmpeg baixa ~30&nbsp;MB na 1ª vez.</p>
             </Panel>
           ) : (
             <Panel title="Gerar" icon={Sparkles}>
@@ -380,7 +390,7 @@ export default function GifPage() {
               <button disabled={busy} onClick={exportFramePng} className="btn-ghost w-full">
                 <ImageIcon className="h-4 w-4" /> Baixar quadro (PNG)
               </button>
-              <p className="mt-3 text-xs text-white/40">O "Baixar quadro (PNG)" é uma conversão (vira imagem parada). O resto mantém o formato. FFmpeg baixa ~30&nbsp;MB na 1ª vez.</p>
+              <p className="mt-3 text-xs text-subtle">O "Baixar quadro (PNG)" é uma conversão (vira imagem parada). O resto mantém o formato. FFmpeg baixa ~30&nbsp;MB na 1ª vez.</p>
             </Panel>
           )}
         </div>
@@ -393,11 +403,11 @@ function Header({ onNew, batchCount }) {
   return (
     <div className="flex items-end justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <Film className="h-6 w-6 text-brand-300" /> Editor de GIF
-          {batchCount > 0 && <span className="rounded-lg bg-brand-500/20 border border-brand-400/40 px-2 py-0.5 text-xs text-brand-200">Lote · {batchCount}</span>}
+        <h1 className="text-2xl font-bold text-ink flex items-center gap-2">
+          <Film className="h-6 w-6 text-brand-500" /> Editor de GIF
+          {batchCount > 0 && <span className="rounded-lg bg-brand-50 border border-brand-200 px-2 py-0.5 text-xs text-brand-500">Lote · {batchCount}</span>}
         </h1>
-        <p className="mt-1 text-sm text-white/45">{batchCount > 0 ? "Ajuste e aplique os mesmos parâmetros a todos os arquivos." : "Converta, otimize e ajuste GIFs direto no navegador."}</p>
+        <p className="mt-1 text-sm text-subtle">{batchCount > 0 ? "Ajuste e aplique os mesmos parâmetros a todos os arquivos." : "Converta, otimize e ajuste GIFs direto no navegador."}</p>
       </div>
       {onNew && <button onClick={onNew} className="btn-ghost shrink-0"><Film className="h-4 w-4" /> {batchCount > 0 ? "Sair do lote" : "Novo arquivo"}</button>}
     </div>

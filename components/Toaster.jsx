@@ -10,10 +10,10 @@ const ICONS = {
   error: XCircle,
 };
 const COLORS = {
-  success: "text-emerald-400",
-  info: "text-brand-300",
-  warn: "text-amber-400",
-  error: "text-rose-400",
+  success: "text-emerald-500",
+  info: "text-brand-500",
+  warn: "text-amber-500",
+  error: "text-rose-500",
 };
 
 export default function Toaster() {
@@ -30,10 +30,10 @@ export default function Toaster() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, x: 40, scale: 0.96 }}
               transition={{ type: "spring", stiffness: 380, damping: 30 }}
-              className="glass-strong rounded-xl px-4 py-3 flex items-start gap-3 shadow-card"
+              className="bg-white border border-line rounded-xl px-4 py-3 flex items-start gap-3 shadow-card"
             >
               <Icon className={`h-5 w-5 shrink-0 mt-0.5 ${COLORS[t.kind] || COLORS.info}`} />
-              <p className="text-sm text-white/90 leading-snug">{t.message}</p>
+              <p className="text-sm text-ink leading-snug">{t.message}</p>
             </motion.div>
           );
         })}

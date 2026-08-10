@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Repeat, Download, ArrowRight } from "lucide-react";
+import { Repeat, Download, ArrowRight, Save } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import { Panel, Segmented, ProgressBar, Stat, EmptyState } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
@@ -9,7 +9,6 @@ import { runFFmpeg } from "@/lib/ffmpeg";
 import { formatBytes, downloadBlob, baseName } from "@/lib/utils";
 import { addHistory } from "@/lib/history";
 import { saveMedia } from "@/lib/storage";
-import { Save } from "lucide-react";
 
 const TARGETS = {
   image: [{ v: "png", l: "PNG" }, { v: "jpeg", l: "JPG" }, { v: "webp", l: "WEBP" }, { v: "gif", l: "GIF" }],
@@ -90,10 +89,10 @@ export default function ConvertPage() {
           <div className="grid place-items-center rounded-xl checkerboard p-4 min-h-[240px]">
             {category === "video" ? <video src={media.url} controls className="max-h-[48vh] rounded-lg" /> : <img src={media.url} alt="" className="max-h-[48vh] rounded-lg" />}
           </div>
-          <div className="mt-3 flex items-center justify-center gap-3 text-sm text-white/60">
+          <div className="mt-3 flex items-center justify-center gap-3 text-sm text-muted">
             <span className="chip">{media.type.split("/")[1]?.toUpperCase() || "?"}</span>
-            <ArrowRight className="h-4 w-4 text-brand-300" />
-            <span className="chip !border-brand-400/60 !bg-brand-500/20 !text-white">{to.toUpperCase()}</span>
+            <ArrowRight className="h-4 w-4 text-brand-500" />
+            <span className="chip !border-brand-200 !bg-brand-50 !text-brand-500">{to.toUpperCase()}</span>
           </div>
         </div>
 
@@ -102,7 +101,7 @@ export default function ConvertPage() {
             <div className="grid grid-cols-2 gap-2">
               {TARGETS[category].map((t) => (
                 <button key={t.v} onClick={() => setTo(t.v)}
-                  className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-all ${to === t.v ? "bg-brand-500/20 border-brand-400/50 text-white" : "bg-white/[0.03] border-white/10 text-white/60 hover:text-white"}`}>
+                  className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-all ${to === t.v ? "bg-brand-50 border-brand-200 text-brand-500" : "bg-[#F6F5F6] border-line text-muted hover:text-ink"}`}>
                   {t.l}
                 </button>
               ))}
@@ -112,11 +111,11 @@ export default function ConvertPage() {
 
           {(busy || result) && (
             <Panel title="Resultado">
-              {busy ? <div className="py-4"><ProgressBar value={progress} /><p className="mt-3 text-center text-sm text-white/50">{progress != null ? `${progress}%` : "Processando…"}</p></div> : (
+              {busy ? <div className="py-4"><ProgressBar value={progress} /><p className="mt-3 text-center text-sm text-muted">{progress != null ? `${progress}%` : "Processando…"}</p></div> : (
                 <>
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     <Stat label="Peso" value={formatBytes(result.size)} />
-                    <Stat label="Formato" value={to.toUpperCase()} accent="text-brand-300" />
+                    <Stat label="Formato" value={to.toUpperCase()} accent="text-brand-500" />
                   </div>
                   <div className="flex gap-2">
                     <button onClick={async () => { const k = ["mp4", "webm"].includes(to) ? "video" : to === "gif" ? "gif" : to === "mp3" ? "audio" : "image"; await saveMedia({ name: result.name, kind: k, type: result.blob.type, blob: result.blob }); toast("Salvo na biblioteca!", "success"); }} className="btn-ghost flex-1"><Save className="h-4 w-4" /> Salvar</button>
@@ -136,8 +135,8 @@ function Header({ onNew }) {
   return (
     <div className="flex items-end justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2"><Repeat className="h-6 w-6 text-brand-300" /> Conversor</h1>
-        <p className="mt-1 text-sm text-white/45">Converta imagens, GIFs e vídeos entre formatos populares.</p>
+        <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><Repeat className="h-6 w-6 text-brand-500" /> Conversor</h1>
+        <p className="mt-1 text-sm text-subtle">Converta imagens, GIFs e vídeos entre formatos populares.</p>
       </div>
       {onNew && <button onClick={onNew} className="btn-ghost shrink-0">Novo arquivo</button>}
     </div>

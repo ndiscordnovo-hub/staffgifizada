@@ -81,8 +81,8 @@ export default function QrCodePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2"><QrCode className="h-6 w-6 text-brand-300" /> Gerador de QR Code</h1>
-        <p className="mt-1 text-sm text-white/45">Crie um QR Code do convite do servidor ou de qualquer link. Baixe e divulgue.</p>
+        <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><QrCode className="h-6 w-6 text-brand-500" /> Gerador de QR Code</h1>
+        <p className="mt-1 text-sm text-subtle">Crie um QR Code do convite do servidor ou de qualquer link. Baixe e divulgue.</p>
       </div>
 
       <div className="grid lg:grid-cols-[1fr_360px] gap-5 items-start">
@@ -110,8 +110,8 @@ export default function QrCodePage() {
             <div className="flex flex-wrap gap-1.5 mb-3">
               {COLOR_PRESETS.map((p) => (
                 <button key={p.l} onClick={() => { setDark(p.dark); setLight(p.light); }}
-                  className={`chip ${dark === p.dark && light === p.light ? "!border-brand-400/60 !bg-brand-500/20 !text-white" : ""}`}>
-                  <span className="h-3 w-3 rounded-full border border-white/20" style={{ background: p.dark }} /> {p.l}
+                  className={`chip ${dark === p.dark && light === p.light ? "!border-brand-200 !bg-brand-50 !text-brand-500" : ""}`}>
+                  <span className="h-3 w-3 rounded-full border border-line" style={{ background: p.dark }} /> {p.l}
                 </button>
               ))}
             </div>
@@ -120,19 +120,19 @@ export default function QrCodePage() {
             <div className="grid grid-cols-2 gap-3 mt-1 mb-3">
               <label className="flex items-center justify-between gap-2">
                 <span className="field-label !mb-0">Cor</span>
-                <input type="color" value={dark} onChange={(e) => setDark(e.target.value)} className="h-8 w-12 rounded-lg bg-transparent border border-white/10 cursor-pointer" />
+                <input type="color" value={dark} onChange={(e) => setDark(e.target.value)} className="h-8 w-12 rounded-lg bg-transparent border border-line cursor-pointer" />
               </label>
               <label className="flex items-center justify-between gap-2">
                 <span className="field-label !mb-0">Fundo</span>
-                <input type="color" value={light} onChange={(e) => setLight(e.target.value)} className="h-8 w-12 rounded-lg bg-transparent border border-white/10 cursor-pointer" />
+                <input type="color" value={light} onChange={(e) => setLight(e.target.value)} className="h-8 w-12 rounded-lg bg-transparent border border-line cursor-pointer" />
               </label>
             </div>
             <div className="field-label">Nível de correção (resistência a dano)</div>
             <Segmented options={[{ value: "L", label: "Baixo" }, { value: "M", label: "Médio" }, { value: "Q", label: "Alto" }, { value: "H", label: "Máx" }]} value={ecc} onChange={setEcc} />
 
             {/* Logo no centro (opcional) */}
-            <div className="mt-5 pt-4 border-t border-white/10">
-              <div className="text-sm font-semibold text-white mb-2">Logo no centro (opcional)</div>
+            <div className="mt-5 pt-4 border-t border-line">
+              <div className="text-sm font-semibold text-ink mb-2">Logo no centro (opcional)</div>
               {!logoImg ? (
                 <label className="btn-ghost w-full cursor-pointer justify-center">
                   Enviar logo
@@ -141,7 +141,7 @@ export default function QrCodePage() {
               ) : (
                 <button onClick={() => setLogoImg(null)} className="btn-soft w-full text-xs">Remover logo</button>
               )}
-              {logoImg && <p className="mt-2 text-[11px] text-white/40">Correção máxima ativada automaticamente pro QR continuar escaneável.</p>}
+              {logoImg && <p className="mt-2 text-[11px] text-subtle">Correção máxima ativada automaticamente pro QR continuar escaneável.</p>}
             </div>
           </Panel>
 

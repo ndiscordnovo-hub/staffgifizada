@@ -99,7 +99,7 @@ export default function EmojiPage() {
             {isGif ? <img src={media.url} alt="" className="max-h-[42vh] rounded" style={{ width: cur.size, height: cur.size, objectFit: fit }} />
                    : <img src={media.url} alt="" className="rounded" style={{ width: cur.size, height: cur.size, objectFit: fit, maxWidth: "100%" }} />}
           </div>
-          <p className="mt-3 text-xs text-white/40">Prévia {cur.size}×{cur.size}px ({fit === "cover" ? "preenchido" : "ajustado"})</p>
+          <p className="mt-3 text-xs text-subtle">Prévia {cur.size}×{cur.size}px ({fit === "cover" ? "preenchido" : "ajustado"})</p>
         </div>
 
         <div className="space-y-4">
@@ -114,19 +114,19 @@ export default function EmojiPage() {
             <button disabled={busy} onClick={generate} className="btn-primary w-full mt-4">
               <Sparkles className="h-4 w-4" /> {busy ? "Gerando…" : `Gerar ${cur.label}`}
             </button>
-            {isGif && <p className="mt-2 text-[11px] text-white/40">GIF usa o motor FFmpeg (baixa ~30MB na 1ª vez).</p>}
+            {isGif && <p className="mt-2 text-[11px] text-subtle">GIF usa o motor FFmpeg (baixa ~30MB na 1ª vez).</p>}
           </Panel>
 
           {(busy || result) && (
             <Panel title="Resultado">
-              {busy ? <div className="py-3"><ProgressBar value={progress} /><p className="mt-2 text-center text-xs text-white/50">{progress != null ? `${progress}%` : "Processando…"}</p></div> : (
+              {busy ? <div className="py-3"><ProgressBar value={progress} /><p className="mt-2 text-center text-xs text-muted">{progress != null ? `${progress}%` : "Processando…"}</p></div> : (
                 <>
                   <div className="grid place-items-center rounded-xl checkerboard p-4 mb-3">
                     <img src={result.url} alt="" style={{ width: cur.size, height: cur.size, maxWidth: "100%" }} className="rounded" />
                   </div>
                   <div className="grid grid-cols-2 gap-2 mb-3">
-                    <Stat label="Peso" value={formatBytes(result.size)} accent={result.size <= cur.limit ? "text-emerald-400" : "text-amber-300"} />
-                    <Stat label="Cabe?" value={result.size <= cur.limit ? "✓ Sim" : "Acima"} accent={result.size <= cur.limit ? "text-emerald-400" : "text-amber-300"} />
+                    <Stat label="Peso" value={formatBytes(result.size)} accent={result.size <= cur.limit ? "text-emerald-500" : "text-amber-500"} />
+                    <Stat label="Cabe?" value={result.size <= cur.limit ? "✓ Sim" : "Acima"} accent={result.size <= cur.limit ? "text-emerald-500" : "text-amber-500"} />
                   </div>
                   <button onClick={() => downloadBlob(result.blob, result.name)} className="btn-primary w-full"><Download className="h-4 w-4" /> Baixar</button>
                 </>
@@ -143,8 +143,8 @@ function Header({ onNew }) {
   return (
     <div className="flex items-end justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2"><Smile className="h-6 w-6 text-brand-300" /> Emoji & Sticker</h1>
-        <p className="mt-1 text-sm text-white/45">Ajuste imagens e GIFs pros tamanhos e limites do Discord.</p>
+        <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><Smile className="h-6 w-6 text-brand-500" /> Emoji & Sticker</h1>
+        <p className="mt-1 text-sm text-subtle">Ajuste imagens e GIFs pros tamanhos e limites do Discord.</p>
       </div>
       {onNew && <button onClick={onNew} className="btn-ghost shrink-0"><Smile className="h-4 w-4" /> Novo</button>}
     </div>

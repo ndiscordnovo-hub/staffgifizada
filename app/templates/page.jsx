@@ -49,10 +49,10 @@ export default function TemplatesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <LayoutTemplate className="h-6 w-6 text-brand-300" /> Templates
+        <h1 className="text-2xl font-bold text-ink flex items-center gap-2">
+          <LayoutTemplate className="h-6 w-6 text-brand-500" /> Templates
         </h1>
-        <p className="mt-1 text-sm text-white/45">
+        <p className="mt-1 text-sm text-subtle">
           Modelos prontos nos tamanhos certos. Escolha um, abra no editor e adicione seu texto e logo.
         </p>
       </div>
@@ -63,7 +63,7 @@ export default function TemplatesPage() {
             key={t.id}
             whileHover={{ y: -4 }}
             onClick={() => use(t)}
-            className="group card overflow-hidden text-left hover:border-brand-400/40 transition-all"
+            className="group card overflow-hidden text-left hover:border-brand-200 transition-all"
           >
             <div className="relative aspect-video w-full overflow-hidden">
               <div
@@ -79,15 +79,15 @@ export default function TemplatesPage() {
               </div>
             </div>
             <div className="p-3">
-              <div className="text-sm font-semibold text-white">{t.name}</div>
-              <div className="text-xs text-white/40">{t.w}×{t.h}</div>
+              <div className="text-sm font-semibold text-ink">{t.name}</div>
+              <div className="text-xs text-subtle">{t.w}×{t.h}</div>
             </div>
           </motion.button>
         ))}
       </div>
 
-      <p className="text-xs text-white/35">
-        Dica: depois de abrir, use a aba <span className="text-white/60">Texto</span> para escrever e o <span className="text-white/60">Fundo</span> para trocar/remover.
+      <p className="text-xs text-subtle">
+        Dica: depois de abrir, use a aba <span className="text-muted">Texto</span> para escrever e o <span className="text-muted">Fundo</span> para trocar/remover.
       </p>
     </div>
   );

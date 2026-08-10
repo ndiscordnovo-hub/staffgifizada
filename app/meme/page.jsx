@@ -94,8 +94,8 @@ function Header({ onNew }) {
   return (
     <div className="flex items-end justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2"><Laugh className="h-6 w-6 text-brand-300" /> Meme Generator</h1>
-        <p className="mt-1 text-sm text-white/45">Texto clássico de meme (fonte Impact com contorno), em tempo real.</p>
+        <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><Laugh className="h-6 w-6 text-brand-500" /> Gerador de Memes</h1>
+        <p className="mt-1 text-sm text-subtle">Texto clássico de meme (fonte Impact com contorno), em tempo real.</p>
       </div>
       {onNew && <button onClick={onNew} className="btn-ghost shrink-0"><ImageIcon className="h-4 w-4" /> Nova imagem</button>}
     </div>

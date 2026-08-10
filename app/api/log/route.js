@@ -47,6 +47,12 @@ async function sendToDiscord(url, embed) {
 }
 
 export async function POST(request) {
+  const origin = request.headers.get("origin") || "";
+  const host = request.headers.get("host") || "";
+  if (origin && !origin.includes(host.split(":")[0])) {
+    return Response.json({ ok: false, reason: "origin_mismatch" }, { status: 403 });
+  }
+
   let body;
   try {
     body = await request.json();

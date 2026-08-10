@@ -152,8 +152,8 @@ export default function BatchPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2"><Layers className="h-6 w-6 text-brand-300" /> Processamento em lote</h1>
-        <p className="mt-1 text-sm text-white/45">Envie de {MIN_FILES} a {MAX_FILES} arquivos e aplique a mesma configuração a todos. O formato de cada arquivo é preservado.</p>
+        <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><Layers className="h-6 w-6 text-brand-500" /> Processamento em lote</h1>
+        <p className="mt-1 text-sm text-subtle">Envie de {MIN_FILES} a {MAX_FILES} arquivos e aplique a mesma configuração a todos. O formato de cada arquivo é preservado.</p>
       </div>
       <canvas ref={canvasRef} className="hidden" />
       <input ref={addInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
@@ -175,7 +175,7 @@ export default function BatchPage() {
           ) : (
             <div className="card p-4">
               <div className="mb-3 flex items-center justify-between gap-2">
-                <div className="text-sm font-semibold text-white">Fila · {items.length}/{MAX_FILES}</div>
+                <div className="text-sm font-semibold text-ink">Fila · {items.length}/{MAX_FILES}</div>
                 <div className="flex items-center gap-2">
                   <button onClick={() => addInputRef.current?.click()} disabled={items.length >= MAX_FILES || running} className="btn-soft text-xs"><Plus className="h-3.5 w-3.5" /> Adicionar</button>
                   <button onClick={clearAll} disabled={running} className="btn-soft text-xs"><Trash2 className="h-3.5 w-3.5" /> Limpar</button>
@@ -183,7 +183,7 @@ export default function BatchPage() {
               </div>
 
               {running && (
-                <div className="mb-4"><ProgressBar value={Math.round((doneCount / items.length) * 100)} /><p className="mt-2 text-xs text-white/50 text-center">{doneCount}/{items.length} processados</p></div>
+                <div className="mb-4"><ProgressBar value={Math.round((doneCount / items.length) * 100)} /><p className="mt-2 text-xs text-muted text-center">{doneCount}/{items.length} processados</p></div>
               )}
 
               <div className="space-y-2 max-h-[52vh] overflow-auto pr-1">
@@ -192,26 +192,26 @@ export default function BatchPage() {
                     const Icon = KIND_ICON[it.kind] || ImageIcon;
                     return (
                       <motion.div key={it.id} layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -10 }}
-                        className="rounded-xl bg-white/[0.03] border border-white/10 px-3 py-2.5">
+                        className="rounded-xl bg-[#F6F5F6] border border-line px-3 py-2.5">
                         <div className="flex items-center gap-3">
-                          <div className={`h-8 w-8 shrink-0 grid place-items-center rounded-lg ${it.status === "error" ? "bg-red-500/15 text-red-300" : "bg-brand-500/15 text-brand-200"}`}>
+                          <div className={`h-8 w-8 shrink-0 grid place-items-center rounded-lg ${it.status === "error" ? "bg-red-50 text-red-500" : "bg-brand-50 text-brand-500"}`}>
                             {it.status === "processing" ? <Loader2 className="h-4 w-4 animate-spin" /> :
-                             it.status === "done" ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> :
+                             it.status === "done" ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> :
                              it.status === "error" ? <AlertTriangle className="h-4 w-4" /> :
                              <Icon className="h-4 w-4" />}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm text-white/90">{it.name}</div>
-                            <div className="text-xs text-white/40">
+                            <div className="truncate text-sm text-ink">{it.name}</div>
+                            <div className="text-xs text-subtle">
                               <span className="uppercase">{it.kind}</span> · {formatBytes(it.size)}
-                              {it.out && <span className="text-emerald-400"> → {formatBytes(it.out.size)}</span>}
-                              {it.error && <span className="text-red-400"> · {it.error}</span>}
+                              {it.out && <span className="text-emerald-500"> → {formatBytes(it.out.size)}</span>}
+                              {it.error && <span className="text-red-500"> · {it.error}</span>}
                             </div>
                           </div>
                           {it.out ? (
                             <button onClick={() => downloadBlob(it.out.blob, it.out.name)} className="btn-soft !p-2" title="Baixar"><Download className="h-4 w-4" /></button>
                           ) : (
-                            !running && <button onClick={() => removeItem(it.id)} className="btn-soft !p-2 hover:!text-red-400" title="Remover"><X className="h-4 w-4" /></button>
+                            !running && <button onClick={() => removeItem(it.id)} className="btn-soft !p-2 hover:!text-red-500" title="Remover"><X className="h-4 w-4" /></button>
                           )}
                         </div>
                         {it.status === "processing" && (it.kind === "gif" || it.kind === "video") && (
@@ -228,11 +228,11 @@ export default function BatchPage() {
           {/* Relatório final */}
           {report && (
             <div className="card p-4">
-              <div className="text-sm font-semibold text-white mb-2">Relatório final</div>
+              <div className="text-sm font-semibold text-ink mb-2">Relatório final</div>
               <div className="grid grid-cols-3 gap-2">
-                <Stat label="Sucesso" value={report.ok} accent="text-emerald-400" />
-                <Stat label="Erros" value={report.err} accent={report.err ? "text-red-400" : undefined} />
-                <Stat label="Status" value={report.canceled ? "Cancelado" : "Concluído"} accent={report.canceled ? "text-amber-300" : "text-emerald-400"} />
+                <Stat label="Sucesso" value={report.ok} accent="text-emerald-500" />
+                <Stat label="Erros" value={report.err} accent={report.err ? "text-red-500" : undefined} />
+                <Stat label="Status" value={report.canceled ? "Cancelado" : "Concluído"} accent={report.canceled ? "text-amber-500" : "text-emerald-500"} />
               </div>
             </div>
           )}
@@ -240,7 +240,7 @@ export default function BatchPage() {
 
         <div className="space-y-4">
           <Panel title="Configuração (aplicada a todos)" icon={Layers}>
-            <p className="mb-3 text-[11px] text-amber-300/80">🔒 O formato de cada arquivo é preservado (GIF continua GIF, MP4 continua MP4…).</p>
+            <p className="mb-3 text-[11px] text-amber-600">🔒 O formato de cada arquivo é preservado (GIF continua GIF, MP4 continua MP4…).</p>
             <div className="field-label">Redimensionar (opcional)</div>
             <select className="input" value={cfg.preset} onChange={(e) => patchCfg({ preset: e.target.value })}>
               <option value="none">Manter tamanho original</option>
@@ -249,23 +249,23 @@ export default function BatchPage() {
             <div className="mt-4">
               <Slider label="Qualidade" value={cfg.quality} min={10} max={100} unit="%" onChange={(v) => patchCfg({ quality: v })} />
             </div>
-            <p className="text-[11px] text-white/40">Vídeos e GIFs (via FFmpeg) baixam o motor ~30&nbsp;MB na 1ª vez.</p>
+            <p className="text-[11px] text-subtle">Vídeos e GIFs (via FFmpeg) baixam o motor ~30&nbsp;MB na 1ª vez.</p>
           </Panel>
 
           <Panel title="Resumo">
             <div className="grid grid-cols-2 gap-2">
               <Stat label="Arquivos" value={`${items.length}/${MAX_FILES}`} />
-              <Stat label="Concluídos" value={doneCount} accent="text-emerald-400" />
+              <Stat label="Concluídos" value={doneCount} accent="text-emerald-500" />
               <Stat label="Peso total" value={formatBytes(totalIn)} />
-              <Stat label="Depois" value={totalOut ? formatBytes(totalOut) : "—"} accent="text-emerald-400" />
+              <Stat label="Depois" value={totalOut ? formatBytes(totalOut) : "—"} accent="text-emerald-500" />
             </div>
             {items.length > 0 && items.length < MIN_FILES && (
-              <p className="mt-3 text-xs text-amber-300/80">Adicione pelo menos {MIN_FILES} arquivos para processar em lote.</p>
+              <p className="mt-3 text-xs text-amber-600">Adicione pelo menos {MIN_FILES} arquivos para processar em lote.</p>
             )}
           </Panel>
 
           {running ? (
-            <button onClick={cancel} className="btn-ghost w-full !border-red-400/40 !text-red-300"><Ban className="h-4 w-4" /> Cancelar</button>
+            <button onClick={cancel} className="btn-ghost w-full !border-red-200 !text-red-500"><Ban className="h-4 w-4" /> Cancelar</button>
           ) : (
             <button disabled={!canProcess} onClick={process} className="btn-primary w-full"><Layers className="h-4 w-4" /> Processar tudo</button>
           )}

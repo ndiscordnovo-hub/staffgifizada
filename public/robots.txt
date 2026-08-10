@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://staffgifizada.vercel.app/sitemap.xml

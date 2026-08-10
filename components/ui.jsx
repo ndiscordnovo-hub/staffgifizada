@@ -5,8 +5,8 @@ export function Panel({ title, icon: Icon, children, className = "" }) {
   return (
     <div className={`card p-4 ${className}`}>
       {title && (
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
-          {Icon && <Icon className="h-4 w-4 text-brand-300" />}
+        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+          {Icon && <Icon className="h-4 w-4 text-brand-500" />}
           {title}
         </div>
       )}
@@ -20,10 +20,10 @@ export function Slider({ label, value, min, max, step = 1, unit = "", onChange, 
     <div className="mb-3.5">
       <div className="field-label">
         <span>{label}</span>
-        <span className="tabular-nums text-white/70">
+        <span className="tabular-nums text-ink">
           {value}{unit}
           {onReset && value !== undefined && (
-            <button onClick={onReset} className="ml-2 text-white/30 hover:text-white/70">↺</button>
+            <button onClick={onReset} className="ml-2 text-subtle hover:text-muted">↺</button>
           )}
         </span>
       </div>
@@ -41,7 +41,7 @@ export function Segmented({ options, value, onChange, className = "", scroll = f
   const container = scroll ? "overflow-x-auto no-scrollbar" : wrap ? "flex-wrap" : "";
   const btnSize = scroll || wrap ? "shrink-0 px-3.5" : "flex-1 px-2.5";
   return (
-    <div className={`relative flex gap-1 rounded-xl bg-white/[0.04] border border-white/10 p-1 ${container} ${className}`}>
+    <div className={`relative flex gap-1 rounded-xl bg-[#F6F5F6] border border-line p-1 ${container} ${className}`}>
       {options.map((o) => {
         const active = o.value === value;
         return (
@@ -49,12 +49,12 @@ export function Segmented({ options, value, onChange, className = "", scroll = f
             key={o.value}
             onClick={() => onChange(o.value)}
             className={`relative ${btnSize} rounded-lg py-2 text-xs font-medium transition-colors whitespace-nowrap
-              ${active ? "text-white" : "text-white/50 hover:text-white/80"}`}
+              ${active ? "text-brand-500" : "text-muted hover:text-ink"}`}
           >
             {active && (
               <motion.span
                 layoutId={`seg-${options.map((x) => x.value).join()}`}
-                className="absolute inset-0 rounded-lg bg-brand-500/30 border border-brand-400/40"
+                className="absolute inset-0 rounded-lg bg-white border border-brand-200 shadow-card-sm"
                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
               />
             )}
@@ -75,8 +75,8 @@ export function ToolButton({ icon: Icon, label, active, onClick }) {
       onClick={onClick}
       className={`flex flex-col items-center gap-1.5 rounded-xl border p-2.5 text-[11px] font-medium transition-all
         ${active
-          ? "bg-brand-500/20 border-brand-400/50 text-white"
-          : "bg-white/[0.03] border-white/10 text-white/60 hover:text-white hover:bg-white/[0.07] hover:-translate-y-0.5"}`}
+          ? "bg-brand-50 border-brand-200 text-brand-500"
+          : "bg-white border-line text-muted hover:text-ink hover:border-brand-200 hover:-translate-y-0.5"}`}
     >
       <Icon className="h-4 w-4" />
       {label}
@@ -84,11 +84,10 @@ export function ToolButton({ icon: Icon, label, active, onClick }) {
   );
 }
 
-// Animated indeterminate/determinate progress bar.
 export function ProgressBar({ value }) {
   const indeterminate = value == null;
   return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+    <div className="h-2 w-full overflow-hidden rounded-full bg-line">
       {indeterminate ? (
         <div className="h-full w-1/3 rounded-full bg-gradient-to-r from-brand-400 to-brand-600 animate-[shimmer_1.2s_infinite]" />
       ) : (
@@ -105,9 +104,9 @@ export function ProgressBar({ value }) {
 
 export function Stat({ label, value, accent }) {
   return (
-    <div className="rounded-xl bg-white/[0.03] border border-white/10 px-3 py-2.5">
-      <div className="text-[10px] uppercase tracking-wide text-white/40">{label}</div>
-      <div className={`text-sm font-semibold tabular-nums ${accent || "text-white"}`}>{value}</div>
+    <div className="rounded-xl bg-[#F6F5F6] border border-line px-3 py-2.5">
+      <div className="text-[10px] uppercase tracking-wide text-subtle">{label}</div>
+      <div className={`text-sm font-semibold tabular-nums ${accent || "text-ink"}`}>{value}</div>
     </div>
   );
 }
@@ -115,11 +114,11 @@ export function Stat({ label, value, accent }) {
 export function EmptyState({ icon: Icon, title, desc, action }) {
   return (
     <div className="card flex flex-col items-center justify-center py-16 px-6 text-center">
-      <div className="mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-brand-500/25 to-brand-700/15 border border-white/10">
-        <Icon className="h-8 w-8 text-brand-200" />
+      <div className="mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-brand-50 to-brand-100 border border-brand-200">
+        <Icon className="h-8 w-8 text-brand-500" />
       </div>
-      <h3 className="text-lg font-bold text-white">{title}</h3>
-      <p className="mt-1.5 max-w-sm text-sm text-white/50">{desc}</p>
+      <h3 className="text-lg font-bold text-ink">{title}</h3>
+      <p className="mt-1.5 max-w-sm text-sm text-muted">{desc}</p>
       {action && <div className="mt-5">{action}</div>}
     </div>
   );

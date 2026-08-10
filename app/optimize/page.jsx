@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Gauge, Download, Sparkles, Zap, Feather, Rocket } from "lucide-react";
+import { Gauge, Download, Sparkles, Zap, Feather, Rocket, Save } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import { Panel, ProgressBar, Stat, EmptyState } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
@@ -10,7 +10,6 @@ import { runFFmpeg } from "@/lib/ffmpeg";
 import { formatBytes, downloadBlob, baseName, DISCORD_LIMITS } from "@/lib/utils";
 import { addHistory } from "@/lib/history";
 import { saveMedia } from "@/lib/storage";
-import { Save } from "lucide-react";
 
 const MODES = [
   { id: "max", label: "Máxima qualidade", desc: "Compressão leve, nitidez total", icon: Sparkles, quality: 0.95 },
@@ -102,7 +101,7 @@ export default function OptimizePage() {
           <Panel title="Análise do arquivo" icon={Gauge}>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <Stat label="Tamanho atual" value={formatBytes(media.size)} />
-              <Stat label="Tamanho previsto" value={est ? `~${formatBytes(est)}` : "—"} accent="text-brand-300" />
+              <Stat label="Tamanho previsto" value={est ? `~${formatBytes(est)}` : "—"} accent="text-brand-500" />
               <Stat label="Qualidade" value={target ? "Auto" : mode === "max" ? "Alta" : mode === "balanced" ? "Boa" : "Compacta"} />
               <Stat label="Tempo estim." value={isImage ? "< 1s" : "5–40s"} />
             </div>
@@ -111,16 +110,16 @@ export default function OptimizePage() {
           {(busy || result) && (
             <Panel title="Resultado" icon={Sparkles}>
               {busy ? (
-                <div className="py-6"><ProgressBar value={progress} /><p className="mt-3 text-center text-sm text-white/50">{progress != null ? `Processando… ${progress}%` : "Otimizando…"}</p></div>
+                <div className="py-6"><ProgressBar value={progress} /><p className="mt-3 text-center text-sm text-muted">{progress != null ? `Processando… ${progress}%` : "Otimizando…"}</p></div>
               ) : (
                 <>
                   <div className="grid grid-cols-3 gap-2">
                     <Stat label="Antes" value={formatBytes(media.size)} />
-                    <Stat label="Depois" value={formatBytes(result.size)} accent="text-emerald-400" />
-                    <Stat label="Redução" value={`${Math.max(0, Math.round((1 - result.size / media.size) * 100))}%`} accent="text-emerald-400" />
+                    <Stat label="Depois" value={formatBytes(result.size)} accent="text-emerald-500" />
+                    <Stat label="Redução" value={`${Math.max(0, Math.round((1 - result.size / media.size) * 100))}%`} accent="text-emerald-500" />
                   </div>
                   {target && (
-                    <p className={`mt-3 text-sm ${result.size <= DISCORD_LIMITS.find((d) => d.id === target).bytes ? "text-emerald-400" : "text-amber-300"}`}>
+                    <p className={`mt-3 text-sm ${result.size <= DISCORD_LIMITS.find((d) => d.id === target).bytes ? "text-emerald-500" : "text-amber-500"}`}>
                       {result.size <= DISCORD_LIMITS.find((d) => d.id === target).bytes ? "✓ Cabe no limite escolhido!" : "Ainda acima do limite — tente Ultra compacto."}
                     </p>
                   )}
@@ -139,11 +138,11 @@ export default function OptimizePage() {
             <div className="space-y-2">
               {MODES.map((m) => (
                 <button key={m.id} onClick={() => { setMode(m.id); setTarget(null); }}
-                  className={`w-full flex items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all ${mode === m.id && !target ? "bg-brand-500/20 border-brand-400/50" : "bg-white/[0.03] border-white/10 hover:bg-white/[0.06]"}`}>
-                  <m.icon className="h-5 w-5 text-brand-300 shrink-0" />
+                  className={`w-full flex items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all ${mode === m.id && !target ? "bg-brand-50 border-brand-200" : "bg-[#F6F5F6] border-line hover:bg-[#EEECED]"}`}>
+                  <m.icon className="h-5 w-5 text-brand-500 shrink-0" />
                   <div>
-                    <div className="text-sm font-semibold text-white">{m.label}</div>
-                    <div className="text-xs text-white/45">{m.desc}</div>
+                    <div className="text-sm font-semibold text-ink">{m.label}</div>
+                    <div className="text-xs text-subtle">{m.desc}</div>
                   </div>
                 </button>
               ))}
@@ -154,7 +153,7 @@ export default function OptimizePage() {
             <div className="grid grid-cols-2 gap-2">
               {DISCORD_LIMITS.map((d) => (
                 <button key={d.id} onClick={() => setTarget(target === d.id ? null : d.id)}
-                  className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-all ${target === d.id ? "bg-brand-500/20 border-brand-400/50 text-white" : "bg-white/[0.03] border-white/10 text-white/60 hover:text-white"}`}>
+                  className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-all ${target === d.id ? "bg-brand-50 border-brand-200 text-brand-500" : "bg-[#F6F5F6] border-line text-muted hover:text-ink"}`}>
                   {d.label}
                 </button>
               ))}
@@ -172,8 +171,8 @@ function Header({ onNew }) {
   return (
     <div className="flex items-end justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2"><Gauge className="h-6 w-6 text-brand-300" /> Otimização Inteligente</h1>
-        <p className="mt-1 text-sm text-white/45">Reduza o peso automaticamente mantendo a melhor qualidade.</p>
+        <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><Gauge className="h-6 w-6 text-brand-500" /> Otimização Inteligente</h1>
+        <p className="mt-1 text-sm text-subtle">Reduza o peso automaticamente mantendo a melhor qualidade.</p>
       </div>
       {onNew && <button onClick={onNew} className="btn-ghost shrink-0">Novo arquivo</button>}
     </div>

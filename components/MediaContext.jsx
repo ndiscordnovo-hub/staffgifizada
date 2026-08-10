@@ -11,12 +11,16 @@ export function MediaProvider({ children }) {
   const [toasts, setToasts] = useState([]);
   const idRef = useRef(0);
 
+  const prevUrlRef = useRef(null);
   const setMedia = useCallback((file) => {
+    if (prevUrlRef.current) URL.revokeObjectURL(prevUrlRef.current);
     if (!file) {
+      prevUrlRef.current = null;
       setMediaState(null);
       return;
     }
     const url = URL.createObjectURL(file);
+    prevUrlRef.current = url;
     setMediaState({
       file,
       url,

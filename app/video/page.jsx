@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Video, Download, Scissors, Volume2, VolumeX, Film, Sparkles, Gauge, RotateCw, Crop, X as XIcon } from "lucide-react";
+import { Video, Download, Scissors, Volume2, VolumeX, Film, Sparkles, Gauge, RotateCw, Crop, X as XIcon, Save } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import ModeChooser from "@/components/ModeChooser";
 import ProcessingOverlay from "@/components/ProcessingOverlay";
@@ -12,7 +12,6 @@ import { loadImage } from "@/lib/imageProcessor";
 import { formatBytes, downloadBlob, baseName } from "@/lib/utils";
 import { addHistory } from "@/lib/history";
 import { saveMedia } from "@/lib/storage";
-import { Save } from "lucide-react";
 
 export default function VideoPage() {
   const { media, setMedia, toast } = useMedia();
@@ -147,7 +146,7 @@ export default function VideoPage() {
         <div className="space-y-4">
           {cropping && frameImg ? (
             <div className="card p-4 lg:p-6">
-              <div className="mb-3 text-sm font-semibold text-white flex items-center gap-2"><Crop className="h-4 w-4 text-brand-300" /> Recortar (vale para todo o vídeo)</div>
+              <div className="mb-3 text-sm font-semibold text-ink flex items-center gap-2"><Crop className="h-4 w-4 text-brand-500" /> Recortar (vale para todo o vídeo)</div>
               <CropOverlay img={frameImg} initialCrop={opts.crop} onApply={(c) => { patch({ crop: c }); setCropping(false); toast("Corte aplicado ao vídeo.", "success"); }} onCancel={() => setCropping(false)} />
             </div>
           ) : (
@@ -159,19 +158,19 @@ export default function VideoPage() {
               <Stat label="Corte" value={`${(opts.end - opts.start || 0).toFixed(1)}s`} />
             </div>
             <div className="mt-3 flex gap-2">
-              <button onClick={openCrop} className={`chip flex-1 justify-center ${opts.crop ? "!border-brand-400/60 !bg-brand-500/20 !text-white" : ""}`}><Crop className="h-3.5 w-3.5" /> {opts.crop ? "Corte ativo" : "Recortar"}</button>
-              {opts.crop && <button onClick={() => patch({ crop: null })} className="chip justify-center hover:!text-red-400"><XIcon className="h-3.5 w-3.5" /> Remover</button>}
+              <button onClick={openCrop} className={`chip flex-1 justify-center ${opts.crop ? "!border-brand-200 !bg-brand-50 !text-brand-500" : ""}`}><Crop className="h-3.5 w-3.5" /> {opts.crop ? "Corte ativo" : "Recortar"}</button>
+              {opts.crop && <button onClick={() => patch({ crop: null })} className="chip justify-center hover:!text-red-500"><XIcon className="h-3.5 w-3.5" /> Remover</button>}
             </div>
           </div>
           )}
 
           {(busy || result) && (
             <div className="card p-4">
-              <div className="mb-3 text-sm font-semibold text-white flex items-center gap-2"><Sparkles className="h-4 w-4 text-brand-300" /> Resultado</div>
+              <div className="mb-3 text-sm font-semibold text-ink flex items-center gap-2"><Sparkles className="h-4 w-4 text-brand-500" /> Resultado</div>
               {busy && (
                 <div className="py-6">
                   <ProgressBar value={progress} />
-                  <p className="mt-3 text-center text-sm text-white/50">{progress != null ? `Processando… ${progress}%` : "Carregando FFmpeg…"}</p>
+                  <p className="mt-3 text-center text-sm text-muted">{progress != null ? `Processando… ${progress}%` : "Carregando FFmpeg…"}</p>
                 </div>
               )}
               {result && !busy && (
@@ -182,8 +181,8 @@ export default function VideoPage() {
                     {result.kind === "audio" && <audio src={result.url} controls className="w-full" />}
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2">
-                    <Stat label="Novo peso" value={formatBytes(result.size)} accent={result.size < media.size ? "text-emerald-400" : "text-amber-300"} />
-                    <Stat label="Economia" value={`${Math.max(0, Math.round((1 - result.size / media.size) * 100))}%`} accent="text-emerald-400" />
+                    <Stat label="Novo peso" value={formatBytes(result.size)} accent={result.size < media.size ? "text-emerald-500" : "text-amber-500"} />
+                    <Stat label="Economia" value={`${Math.max(0, Math.round((1 - result.size / media.size) * 100))}%`} accent="text-emerald-500" />
                   </div>
                   <div className="flex gap-2 mt-3">
                     <button onClick={async () => { await saveMedia({ name: result.name, kind: result.kind, type: result.blob.type, blob: result.blob }); toast("Salvo na biblioteca!", "success"); }} className="btn-ghost flex-1"><Save className="h-4 w-4" /> Salvar</button>
@@ -213,7 +212,7 @@ export default function VideoPage() {
             <Slider label="Resolução (escala)" value={opts.scale} min={20} max={100} unit="%" onChange={(v) => patch({ scale: v })} />
             <Slider label="FPS" value={opts.fps} min={10} max={60} onChange={(v) => patch({ fps: v })} />
             <Slider label="Compressão (CRF)" value={opts.crf} min={18} max={40} onChange={(v) => patch({ crf: v })} />
-            <p className="-mt-2 mb-3 text-[11px] text-white/35">CRF menor = melhor qualidade e maior peso.</p>
+            <p className="-mt-2 mb-3 text-[11px] text-subtle">CRF menor = melhor qualidade e maior peso.</p>
             <div className="field-label">Rotação</div>
             <Segmented options={[{ value: 0, label: "0°" }, { value: 90, label: "90°" }, { value: 180, label: "180°" }, { value: 270, label: "270°" }]} value={opts.rotate} onChange={(v) => patch({ rotate: v })} />
             <div className="field-label mt-4">Áudio</div>
@@ -228,7 +227,7 @@ export default function VideoPage() {
               <button disabled={busy} onClick={() => run("gif")} className="btn-ghost"><Film className="h-4 w-4" /> Em GIF</button>
               <button disabled={busy} onClick={() => run("audio")} className="btn-ghost"><Volume2 className="h-4 w-4" /> Áudio</button>
             </div>
-            <p className="mt-3 text-xs text-white/40">Primeira execução baixa o motor FFmpeg (~30&nbsp;MB) uma única vez.</p>
+            <p className="mt-3 text-xs text-subtle">Primeira execução baixa o motor FFmpeg (~30&nbsp;MB) uma única vez.</p>
           </Panel>
         </div>
       </div>
@@ -240,8 +239,8 @@ function Header({ onNew }) {
   return (
     <div className="flex items-end justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2"><Video className="h-6 w-6 text-brand-300" /> Editor de Vídeos</h1>
-        <p className="mt-1 text-sm text-white/45">Corte, comprima, gire, extraia áudio ou gere GIFs e banners animados.</p>
+        <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><Video className="h-6 w-6 text-brand-500" /> Editor de Vídeos</h1>
+        <p className="mt-1 text-sm text-subtle">Corte, comprima, gire, extraia áudio ou gere GIFs e banners animados.</p>
       </div>
       {onNew && <button onClick={onNew} className="btn-ghost shrink-0"><Video className="h-4 w-4" /> Novo vídeo</button>}
     </div>

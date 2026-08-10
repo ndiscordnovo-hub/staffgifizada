@@ -9,12 +9,11 @@ export async function POST(req) {
   } catch {
     return Response.json({ ok: false }, { status: 400 });
   }
-  const expected = process.env.ADMIN_PASSWORD || "gifedition-admin";
+  const expected = process.env.ADMIN_PASSWORD;
+  if (!expected) {
+    return Response.json({ ok: false, reason: "ADMIN_PASSWORD não configurado no servidor." }, { status: 503 });
+  }
   const ok = typeof password === "string" && password.length > 0 && password === expected;
-  // Small delay to discourage brute forcing.
   await new Promise((r) => setTimeout(r, ok ? 0 : 500));
-  return Response.json(
-    { ok, usingDefault: !process.env.ADMIN_PASSWORD },
-    { status: ok ? 200 : 401 }
-  );
+  return Response.json({ ok }, { status: ok ? 200 : 401 });
 }

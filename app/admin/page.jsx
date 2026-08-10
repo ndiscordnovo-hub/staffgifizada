@@ -102,25 +102,25 @@ export default function AdminPage() {
     return (
       <div className="max-w-md mx-auto mt-10">
         <div className="card p-6 sm:p-8 text-center">
-          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-brand-500/25 to-brand-700/10 border border-white/10">
-            <Lock className="h-7 w-7 text-brand-200" />
+          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-brand-500/25 to-brand-700/10 border border-line">
+            <Lock className="h-7 w-7 text-brand-500" />
           </div>
-          <h1 className="text-xl font-bold text-white">Área restrita</h1>
-          <p className="mt-1.5 text-sm text-white/50">Digite a senha de administrador para acessar o painel.</p>
+          <h1 className="text-xl font-bold text-ink">Área restrita</h1>
+          <p className="mt-1.5 text-sm text-muted">Digite a senha de administrador para acessar o painel.</p>
           <form onSubmit={submitPw} className="mt-5 space-y-3">
             <div className="relative">
-              <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+              <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
               <input
                 type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus
                 placeholder="Senha de administrador"
-                className="w-full rounded-xl bg-white/[0.04] border border-white/10 pl-9 pr-3 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-400/60 focus:ring-2 focus:ring-brand-500/20"
+                className="w-full rounded-xl bg-[#F6F5F6] border border-line pl-9 pr-3 py-2.5 text-sm text-ink placeholder-subtle focus:outline-none focus:border-brand-200 focus:ring-2 focus:ring-brand-500/20"
               />
             </div>
             <button type="submit" disabled={authing || !pw} className="btn-primary w-full">
               {authing ? "Verificando…" : "Entrar"}
             </button>
           </form>
-          <p className="mt-4 text-[11px] text-white/30">A senha é verificada no servidor e nunca fica exposta no site.</p>
+          <p className="mt-4 text-[11px] text-subtle">A senha é verificada no servidor e nunca fica exposta no site.</p>
         </div>
       </div>
     );
@@ -130,10 +130,10 @@ export default function AdminPage() {
     <div className="space-y-6 max-w-3xl">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <ShieldCheck className="h-6 w-6 text-brand-300" /> Painel Administrativo
+          <h1 className="text-2xl font-bold text-ink flex items-center gap-2">
+            <ShieldCheck className="h-6 w-6 text-brand-500" /> Painel Administrativo
           </h1>
-          <p className="mt-1 text-sm text-white/45">Logs do site enviados pro Discord por Webhook (um canal por categoria).</p>
+          <p className="mt-1 text-sm text-subtle">Logs do site enviados pro Discord por Webhook (um canal por categoria).</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button onClick={load} className="btn-ghost"><RefreshCw className="h-4 w-4" /> Atualizar</button>
@@ -143,17 +143,17 @@ export default function AdminPage() {
 
       <Panel title="Webhooks por categoria" icon={Webhook}>
         {loading ? (
-          <p className="text-sm text-white/40">Verificando…</p>
+          <p className="text-sm text-subtle">Verificando…</p>
         ) : (
           <div className="space-y-2">
             {CATS.map((c) => {
               const on = status?.[c.id];
               return (
-                <div key={c.id} className="flex items-center gap-3 rounded-xl bg-white/[0.03] border border-white/10 px-3 py-2.5">
-                  {on ? <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" /> : <XCircle className="h-5 w-5 text-white/25 shrink-0" />}
+                <div key={c.id} className="flex items-center gap-3 rounded-xl bg-[#F6F5F6] border border-line px-3 py-2.5">
+                  {on ? <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" /> : <XCircle className="h-5 w-5 text-subtle shrink-0" />}
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-white">{c.label} {on ? <span className="text-emerald-400 text-xs">· ativo</span> : <span className="text-white/30 text-xs">· não configurado</span>}</div>
-                    <div className="text-xs text-white/40 truncate">{c.desc}</div>
+                    <div className="text-sm font-medium text-ink">{c.label} {on ? <span className="text-emerald-500 text-xs">· ativo</span> : <span className="text-subtle text-xs">· não configurado</span>}</div>
+                    <div className="text-xs text-subtle truncate">{c.desc}</div>
                   </div>
                   <button disabled={testing === c.id} onClick={() => test(c)} className="btn-soft !py-1.5 shrink-0">
                     <Send className="h-3.5 w-3.5" /> {testing === c.id ? "…" : "Testar"}
@@ -166,20 +166,20 @@ export default function AdminPage() {
       </Panel>
 
       <div className="card p-5 space-y-3">
-        <div className="flex items-center gap-2 text-sm font-semibold text-white"><Info className="h-4 w-4 text-brand-300" /> Como configurar (seguro)</div>
-        <p className="text-sm text-white/60">
-          Os links de webhook ficam <strong className="text-white">secretos no servidor</strong> (não aparecem no site). Pra ativar cada categoria:
+        <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Info className="h-4 w-4 text-brand-500" /> Como configurar (seguro)</div>
+        <p className="text-sm text-muted">
+          Os links de webhook ficam <strong className="text-ink">secretos no servidor</strong> (não aparecem no site). Pra ativar cada categoria:
         </p>
-        <ol className="text-sm text-white/60 list-decimal pl-5 space-y-1.5">
+        <ol className="text-sm text-muted list-decimal pl-5 space-y-1.5">
           <li>No Discord: <em>Configurações do canal → Integrações → Webhooks → Novo Webhook → Copiar URL</em>.</li>
           <li>Na Vercel: <em>Project → Settings → Environment Variables</em>.</li>
           <li>Adicione a variável com o nome da categoria e cole a URL. Ex.:</li>
         </ol>
-        <div className="rounded-lg bg-black/40 border border-white/10 p-3 font-mono text-xs text-white/70 overflow-x-auto">
-          {CATS.map((c) => <div key={c.id}><span className="text-brand-300">{c.env}</span>=https://discord.com/api/webhooks/…</div>)}
-          <div className="mt-1.5 text-white/40">WEBHOOK_DEFAULT=…  <span className="text-white/30"># (opcional) usado quando a categoria não tem webhook próprio)</span></div>
+        <div className="rounded-lg bg-black/40 border border-line p-3 font-mono text-xs text-muted overflow-x-auto">
+          {CATS.map((c) => <div key={c.id}><span className="text-brand-500">{c.env}</span>=https://discord.com/api/webhooks/…</div>)}
+          <div className="mt-1.5 text-subtle">WEBHOOK_DEFAULT=…  <span className="text-subtle"># (opcional) usado quando a categoria não tem webhook próprio)</span></div>
         </div>
-        <p className="text-xs text-white/40">Depois de salvar as variáveis, faça um novo deploy (ou clique em <em>Redeploy</em> na Vercel) e use os botões “Testar” acima.</p>
+        <p className="text-xs text-subtle">Depois de salvar as variáveis, faça um novo deploy (ou clique em <em>Redeploy</em> na Vercel) e use os botões “Testar” acima.</p>
       </div>
     </div>
   );

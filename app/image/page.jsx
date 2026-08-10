@@ -14,6 +14,7 @@ import CropOverlay from "@/components/CropOverlay";
 import { Panel, Slider, Segmented, ToolButton, Stat, EmptyState, ProgressBar } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
 import { DEFAULT_EDITS, loadImage, render, toBlob, outputSize } from "@/lib/imageProcessor";
+import { getSettings } from "@/lib/history";
 import { removeBgAI, removeBgByColor, guessBackgroundColor } from "@/lib/bgremove";
 import { formatBytes, downloadBlob, baseName, uid, SIZE_PRESETS } from "@/lib/utils";
 import { makeZip, blobToU8 } from "@/lib/zip";
@@ -43,7 +44,10 @@ function ImageEditorInner() {
   const router = useRouter();
   const canvasRef = useRef(null);
   const [img, setImg] = useState(null);
-  const [edits, setEdits] = useState(DEFAULT_EDITS);
+  const [edits, setEdits] = useState(() => {
+    const s = getSettings();
+    return { ...DEFAULT_EDITS, format: s.defaultFormat || "png", quality: s.defaultQuality ?? 0.92 };
+  });
   const [tab, setTab] = useState("transform");
   const [cropping, setCropping] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
@@ -99,24 +103,35 @@ function ImageEditorInner() {
   const applyToAll = async () => {
     if (!batch.length) return;
     setBatchBusy(true); setBatchReport(null);
-    const outs = {}; let ok = 0, err = 0;
-    for (const it of batch) {
-      try {
-        const im = await loadImage(it.file); // eslint-disable-line no-await-in-loop
-        const fmt = keepFormat(it.type);
-        const blob = await toBlob(im, { ...edits, format: fmt }, canvasRef.current); // eslint-disable-line no-await-in-loop
-        const ext = fmt === "jpeg" ? "jpg" : fmt;
-        outs[it.id] = { blob, size: blob.size, name: `${baseName(it.name)}.${ext}` };
-        ok++;
-      } catch (e) { console.error(e); err++; }
-      setBatchOuts({ ...outs });
+    const outs = {}; const errors = []; let ok = 0;
+    try {
+      for (const it of batch) {
+        try {
+          const im = await loadImage(it.file); // eslint-disable-line no-await-in-loop
+          const fmt = keepFormat(it.type);
+          const blob = await toBlob(im, { ...edits, format: fmt }, canvasRef.current); // eslint-disable-line no-await-in-loop
+          const ext = fmt === "jpeg" ? "jpg" : fmt;
+          outs[it.id] = { blob, size: blob.size, name: `${baseName(it.name)}.${ext}` };
+          ok++;
+        } catch (e) {
+          console.error(e);
+          errors.push(it.name);
+          outs[it.id] = { error: e?.message || "Falha ao processar" };
+        }
+        setBatchOuts({ ...outs });
+      }
+    } finally {
+      setBatchBusy(false);
+      setBatchReport({ ok, err: errors.length, errors });
+      const msg = errors.length
+        ? `Lote: ${ok} ok, ${errors.length} erro(s): ${errors.join(", ")}`
+        : `Lote aplicado: ${ok} arquivo(s) com sucesso!`;
+      toast(msg, errors.length ? "warn" : "success");
     }
-    setBatchBusy(false); setBatchReport({ ok, err });
-    toast(`Lote aplicado: ${ok} ok${err ? `, ${err} erro(s)` : ""}.`, "success");
   };
 
   const downloadBatchZip = async () => {
-    const list = batch.map((it) => batchOuts[it.id]).filter(Boolean);
+    const list = batch.map((it) => batchOuts[it.id]).filter((o) => o?.blob);
     if (!list.length) return;
     const entries = await Promise.all(list.map(async (f) => ({ name: f.name, data: await blobToU8(f.blob) })));
     downloadBlob(await makeZip(entries), "gifedition-lote.zip");
@@ -280,7 +295,7 @@ function ImageEditorInner() {
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <button onClick={() => setZoom((z) => Math.max(0.25, z - 0.25))} className="btn-soft !p-2"><ZoomOut className="h-4 w-4" /></button>
-                  <span className="text-xs text-white/50 w-12 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
+                  <span className="text-xs text-muted w-12 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
                   <button onClick={() => setZoom((z) => Math.min(4, z + 0.25))} className="btn-soft !p-2"><ZoomIn className="h-4 w-4" /></button>
                   <button onClick={() => setZoom(1)} className="btn-soft !p-2"><RefreshCw className="h-4 w-4" /></button>
                 </div>
@@ -305,7 +320,7 @@ function ImageEditorInner() {
 
               <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <Stat label="Original" value={formatBytes(media.size)} />
-                <Stat label="Estimado" value={outBytes ? formatBytes(outBytes) : "…"} accent={outBytes && outBytes < media.size ? "text-emerald-400" : "text-amber-300"} />
+                <Stat label="Estimado" value={outBytes ? formatBytes(outBytes) : "…"} accent={outBytes && outBytes < media.size ? "text-emerald-500" : "text-amber-500"} />
                 <Stat label="Resolução" value={`${size.w}×${size.h}`} />
                 <Stat label="Formato" value={edits.format.toUpperCase()} />
               </div>
@@ -341,7 +356,7 @@ function ImageEditorInner() {
                   {edits.crop && (
                     <button onClick={() => patch({ crop: null })} className="btn-soft mt-3 w-full text-xs">Remover corte</button>
                   )}
-                  <p className="mt-3 text-xs text-white/40">Rotação atual: {edits.rotate}°</p>
+                  <p className="mt-3 text-xs text-subtle">Rotação atual: {edits.rotate}°</p>
                 </Panel>
               )}
 
@@ -382,8 +397,8 @@ function ImageEditorInner() {
                   <div className="grid grid-cols-3 gap-1.5 mb-3 w-32">
                     {["tl","tc","tr","ml","mc","mr","bl","bc","br"].map((p) => (
                       <button key={p} onClick={() => patch({ textPos: p })}
-                        className={`h-8 rounded-lg border transition-all ${edits.textPos === p ? "bg-brand-500/30 border-brand-400/60" : "bg-white/[0.03] border-white/10 hover:bg-white/10"}`}>
-                        <span className={`block h-1.5 w-1.5 rounded-full mx-auto ${edits.textPos === p ? "bg-brand-200" : "bg-white/30"}`} />
+                        className={`h-8 rounded-lg border transition-all ${edits.textPos === p ? "bg-brand-50 border-brand-200" : "bg-[#F6F5F6] border-line hover:bg-line"}`}>
+                        <span className={`block h-1.5 w-1.5 rounded-full mx-auto ${edits.textPos === p ? "bg-brand-200" : "bg-subtle"}`} />
                       </button>
                     ))}
                   </div>
@@ -394,19 +409,19 @@ function ImageEditorInner() {
                   <div className="flex items-center gap-3 mb-3">
                     <label className="field-label !mb-0 flex-1">Cor</label>
                     <input type="color" value={edits.textColor} onChange={(e) => patch({ textColor: e.target.value })}
-                      className="h-9 w-14 rounded-lg bg-transparent border border-white/10 cursor-pointer" />
+                      className="h-9 w-14 rounded-lg bg-transparent border border-line cursor-pointer" />
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => patch({ textBold: !edits.textBold })} className={`chip flex-1 justify-center ${edits.textBold ? "!border-brand-400/60 !bg-brand-500/20 !text-white" : ""}`}>Negrito</button>
-                    <button onClick={() => patch({ textShadow: !edits.textShadow })} className={`chip flex-1 justify-center ${edits.textShadow ? "!border-brand-400/60 !bg-brand-500/20 !text-white" : ""}`}>Sombra</button>
+                    <button onClick={() => patch({ textBold: !edits.textBold })} className={`chip flex-1 justify-center ${edits.textBold ? "!border-brand-200 !bg-brand-50 !text-brand-500" : ""}`}>Negrito</button>
+                    <button onClick={() => patch({ textShadow: !edits.textShadow })} className={`chip flex-1 justify-center ${edits.textShadow ? "!border-brand-200 !bg-brand-50 !text-brand-500" : ""}`}>Sombra</button>
                   </div>
                   {edits.textContent && (
                     <button onClick={() => patch({ textContent: "" })} className="btn-soft mt-3 w-full text-xs">Remover texto</button>
                   )}
 
                   {/* Logo / marca d'água de imagem */}
-                  <div className="mt-5 pt-4 border-t border-white/10">
-                    <div className="text-sm font-semibold text-white mb-2">Logo (marca d'água)</div>
+                  <div className="mt-5 pt-4 border-t border-line">
+                    <div className="text-sm font-semibold text-ink mb-2">Logo (marca d'água)</div>
                     {!logoImg ? (
                       <label className="btn-ghost w-full cursor-pointer justify-center">
                         Enviar logo (PNG)
@@ -418,8 +433,8 @@ function ImageEditorInner() {
                         <div className="grid grid-cols-3 gap-1.5 mb-3 w-32">
                           {["tl","tc","tr","ml","mc","mr","bl","bc","br"].map((p) => (
                             <button key={p} onClick={() => patch({ logoPos: p })}
-                              className={`h-8 rounded-lg border transition-all ${edits.logoPos === p ? "bg-brand-500/30 border-brand-400/60" : "bg-white/[0.03] border-white/10 hover:bg-white/10"}`}>
-                              <span className={`block h-1.5 w-1.5 rounded-full mx-auto ${edits.logoPos === p ? "bg-brand-200" : "bg-white/30"}`} />
+                              className={`h-8 rounded-lg border transition-all ${edits.logoPos === p ? "bg-brand-50 border-brand-200" : "bg-[#F6F5F6] border-line hover:bg-line"}`}>
+                              <span className={`block h-1.5 w-1.5 rounded-full mx-auto ${edits.logoPos === p ? "bg-brand-200" : "bg-subtle"}`} />
                             </button>
                           ))}
                         </div>
@@ -434,7 +449,7 @@ function ImageEditorInner() {
 
               {tab === "background" && (
                 <Panel title="Fundo" icon={Frame}>
-                  <p className="mb-3 text-xs text-white/45">Ideal para imagens com transparência ou banners.</p>
+                  <p className="mb-3 text-xs text-subtle">Ideal para imagens com transparência ou banners.</p>
                   <div className="grid grid-cols-2 gap-2">
                     {[
                       { v: "none", l: "Original" },
@@ -446,20 +461,20 @@ function ImageEditorInner() {
                       <button
                         key={b.v}
                         onClick={() => patch({ background: b.v })}
-                        className={`rounded-xl border px-3 py-3 text-sm font-medium transition-all ${edits.background === b.v ? "bg-brand-500/20 border-brand-400/50 text-white" : "bg-white/[0.03] border-white/10 text-white/60 hover:text-white"}`}
+                        className={`rounded-xl border px-3 py-3 text-sm font-medium transition-all ${edits.background === b.v ? "bg-brand-50 border-brand-200 text-brand-500" : "bg-[#F6F5F6] border-line text-muted hover:text-ink"}`}
                       >
                         {b.l}
                       </button>
                     ))}
                   </div>
                   {edits.background === "transparent" && (
-                    <p className="mt-3 text-xs text-amber-300/80">Dica: exporte em PNG ou WEBP para manter a transparência.</p>
+                    <p className="mt-3 text-xs text-amber-600">Dica: exporte em PNG ou WEBP para manter a transparência.</p>
                   )}
 
                   {/* Remover fundo */}
-                  <div className="mt-5 pt-4 border-t border-white/10">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-white mb-1">
-                      <Eraser className="h-4 w-4 text-brand-300" /> Remover fundo
+                  <div className="mt-5 pt-4 border-t border-line">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-ink mb-1">
+                      <Eraser className="h-4 w-4 text-brand-500" /> Remover fundo
                     </div>
                     <button disabled={!!bgBusy} onClick={doRemoveAI} className="btn-primary w-full mt-2">
                       {bgBusy === "ia" ? "Processando…" : "✨ Remover com IA"}
@@ -467,17 +482,17 @@ function ImageEditorInner() {
                     {bgBusy === "ia" && (
                       <div className="mt-2">
                         <ProgressBar value={bgProgress} />
-                        <p className="mt-1 text-[11px] text-white/45 text-center">
+                        <p className="mt-1 text-[11px] text-subtle text-center">
                           {bgProgress != null && bgProgress < 100 ? `Baixando modelo / processando… ${bgProgress}%` : "Finalizando…"}
                         </p>
                       </div>
                     )}
-                    <p className="mt-2 text-[11px] text-white/40">A IA baixa um modelo (~40&nbsp;MB) na primeira vez. Funciona em fotos complexas.</p>
+                    <p className="mt-2 text-[11px] text-subtle">A IA baixa um modelo (~40&nbsp;MB) na primeira vez. Funciona em fotos complexas.</p>
 
-                    <div className="mt-4 text-[11px] uppercase tracking-wide text-white/35">ou por cor (fundo liso)</div>
+                    <div className="mt-4 text-[11px] uppercase tracking-wide text-subtle">ou por cor (fundo liso)</div>
                     <div className="mt-2 flex items-center gap-2">
                       <input type="color" value={bgColor} onChange={(e) => setBgColor(e.target.value)}
-                        className="h-9 w-12 shrink-0 rounded-lg bg-transparent border border-white/10 cursor-pointer" />
+                        className="h-9 w-12 shrink-0 rounded-lg bg-transparent border border-line cursor-pointer" />
                       <div className="flex-1">
                         <Slider label="Tolerância" value={bgTol} min={10} max={150} onChange={setBgTol} />
                       </div>
@@ -485,7 +500,7 @@ function ImageEditorInner() {
                     <button disabled={!!bgBusy} onClick={doRemoveColor} className="btn-ghost w-full mt-1">
                       {bgBusy === "cor" ? "Removendo…" : "Remover por cor"}
                     </button>
-                    <p className="mt-2 text-[11px] text-white/40">Cor detectada automaticamente do canto. Ajuste a tolerância se sobrar ou faltar fundo.</p>
+                    <p className="mt-2 text-[11px] text-subtle">Cor detectada automaticamente do canto. Ajuste a tolerância se sobrar ou faltar fundo.</p>
                   </div>
                 </Panel>
               )}
@@ -501,7 +516,7 @@ function ImageEditorInner() {
                     <button
                       onClick={() => setLockAspect((v) => !v)}
                       title={lockAspect ? "Proporção travada" : "Proporção livre"}
-                      className={`btn mb-0.5 !px-3 !py-2.5 border ${lockAspect ? "bg-brand-500/20 border-brand-400/50 text-brand-200" : "bg-white/[0.04] border-white/10 text-white/50"}`}
+                      className={`btn mb-0.5 !px-3 !py-2.5 border ${lockAspect ? "bg-brand-50 border-brand-200 text-brand-500" : "bg-[#F6F5F6] border-line text-muted"}`}
                     >
                       {lockAspect ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
                     </button>
@@ -511,7 +526,7 @@ function ImageEditorInner() {
                         onChange={(e) => setCustomH(e.target.value)} />
                     </label>
                   </div>
-                  <p className="mb-3 text-[11px] text-white/40">
+                  <p className="mb-3 text-[11px] text-subtle">
                     {lockAspect ? "🔒 Proporção travada — a altura acompanha a largura." : "🔓 Proporção livre — pode distorcer."}
                   </p>
                   <div className="grid grid-cols-2 gap-2 mb-4">
@@ -522,8 +537,8 @@ function ImageEditorInner() {
                   <div className="flex flex-wrap gap-1.5">
                     {SIZE_PRESETS.map((p) => (
                       <button key={p.id} onClick={() => patch({ resizeW: p.w, resizeH: p.h })}
-                        className={`chip ${edits.resizeW === p.w && edits.resizeH === p.h ? "!border-brand-400/60 !bg-brand-500/20 !text-white" : ""}`}>
-                        {p.label} <span className="text-white/30">{p.w}×{p.h}</span>
+                        className={`chip ${edits.resizeW === p.w && edits.resizeH === p.h ? "!border-brand-200 !bg-brand-50 !text-brand-500" : ""}`}>
+                        {p.label} <span className="text-subtle">{p.w}×{p.h}</span>
                       </button>
                     ))}
                   </div>
@@ -544,8 +559,8 @@ function ImageEditorInner() {
                     </div>
                   )}
                   <div className="mt-3 grid grid-cols-2 gap-2">
-                    <Stat label="Peso final" value={outBytes ? formatBytes(outBytes) : "…"} accent={outBytes && outBytes < media.size ? "text-emerald-400" : undefined} />
-                    <Stat label="Economia" value={outBytes ? `${Math.max(0, Math.round((1 - outBytes / media.size) * 100))}%` : "…"} accent="text-emerald-400" />
+                    <Stat label="Peso final" value={outBytes ? formatBytes(outBytes) : "…"} accent={outBytes && outBytes < media.size ? "text-emerald-500" : undefined} />
+                    <Stat label="Economia" value={outBytes ? `${Math.max(0, Math.round((1 - outBytes / media.size) * 100))}%` : "…"} accent="text-emerald-500" />
                   </div>
                   <button onClick={handleDownload} className="btn-primary w-full mt-4">
                     <Download className="h-4 w-4" /> Baixar imagem
@@ -559,24 +574,24 @@ function ImageEditorInner() {
           {batch.length > 0 ? (
             <div className="space-y-3">
               <Panel title={`Modo Lote · ${batch.length} arquivo(s)`} icon={Package}>
-                <p className="mb-3 text-[11px] text-amber-300/80">🔒 A edição atual (todas as abas) será aplicada a todos — o formato de cada um é preservado.</p>
+                <p className="mb-3 text-[11px] text-amber-600">🔒 A edição atual (todas as abas) será aplicada a todos — o formato de cada um é preservado.</p>
                 <div className="space-y-2 max-h-[34vh] overflow-auto pr-1">
                   {batch.map((it) => {
                     const out = batchOuts[it.id];
                     return (
-                      <div key={it.id} className="flex items-center gap-3 rounded-xl bg-white/[0.03] border border-white/10 p-2">
+                      <div key={it.id} className="flex items-center gap-3 rounded-xl bg-[#F6F5F6] border border-line p-2">
                         <img src={it.thumb} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0 checkerboard" />
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-xs font-medium text-white/90">{it.name}</div>
-                          <div className="text-[11px] text-white/40">
+                          <div className="truncate text-xs font-medium text-ink">{it.name}</div>
+                          <div className="text-[11px] text-subtle">
                             {(it.type.split("/")[1] || "?").toUpperCase()} · {formatBytes(it.size)} · {it.w}×{it.h}
-                            {out && <span className="text-emerald-400"> → {formatBytes(out.size)}</span>}
+                            {out && <span className="text-emerald-500"> → {formatBytes(out.size)}</span>}
                           </div>
                         </div>
                         {out ? (
                           <button onClick={() => downloadBlob(out.blob, out.name)} className="btn-soft !p-2 shrink-0" title="Baixar"><Download className="h-4 w-4" /></button>
                         ) : (
-                          !batchBusy && <button onClick={() => removeBatch(it.id)} className="btn-soft !p-2 shrink-0 hover:!text-red-400" title="Remover"><XIcon className="h-4 w-4" /></button>
+                          !batchBusy && <button onClick={() => removeBatch(it.id)} className="btn-soft !p-2 shrink-0 hover:!text-red-500" title="Remover"><XIcon className="h-4 w-4" /></button>
                         )}
                       </div>
                     );
@@ -584,8 +599,8 @@ function ImageEditorInner() {
                 </div>
                 {batchReport && (
                   <div className="mt-3 grid grid-cols-2 gap-2">
-                    <Stat label="Sucesso" value={batchReport.ok} accent="text-emerald-400" />
-                    <Stat label="Erros" value={batchReport.err} accent={batchReport.err ? "text-red-400" : undefined} />
+                    <Stat label="Sucesso" value={batchReport.ok} accent="text-emerald-500" />
+                    <Stat label="Erros" value={batchReport.err} accent={batchReport.err ? "text-red-500" : undefined} />
                   </div>
                 )}
               </Panel>
@@ -619,11 +634,11 @@ function Header({ onNew, batchCount }) {
   return (
     <div className="flex items-end justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <Wand2 className="h-6 w-6 text-brand-300" /> Editor de Imagens
-          {batchCount > 0 && <span className="rounded-lg bg-brand-500/20 border border-brand-400/40 px-2 py-0.5 text-xs text-brand-200">Lote · {batchCount}</span>}
+        <h1 className="text-2xl font-bold text-ink flex items-center gap-2">
+          <Wand2 className="h-6 w-6 text-brand-500" /> Editor de Imagens
+          {batchCount > 0 && <span className="rounded-lg bg-brand-50 border border-brand-200 px-2 py-0.5 text-xs text-brand-500">Lote · {batchCount}</span>}
         </h1>
-        <p className="mt-1 text-sm text-white/45">
+        <p className="mt-1 text-sm text-subtle">
           {batchCount > 0 ? "Edite normalmente — o que você ajustar vale para todos os arquivos do lote." : "Corte, ajuste, redimensione e exporte com pré-visualização em tempo real."}
         </p>
       </div>
@@ -634,7 +649,7 @@ function Header({ onNew, batchCount }) {
 
 export default function ImageEditorPage() {
   return (
-    <Suspense fallback={<div className="text-white/50">Carregando…</div>}>
+    <Suspense fallback={<div className="text-muted">Carregando…</div>}>
       <ImageEditorInner />
     </Suspense>
   );
