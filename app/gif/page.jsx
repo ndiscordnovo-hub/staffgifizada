@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Film, Download, Play, Gauge, Repeat, RotateCcw, Sparkles, Package, Loader2, X as XIcon, CheckCircle2, Image as ImageIcon, Crop, Save } from "lucide-react";
+import { Film, Download, Play, Gauge, Repeat, RotateCcw, Sparkles, Package, Loader2, X as XIcon, CheckCircle2, Image as ImageIcon, Crop, Save, FlipHorizontal2, FlipVertical2, RotateCw, Scissors, Maximize2 } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import ModeChooser from "@/components/ModeChooser";
 import ProcessingOverlay from "@/components/ProcessingOverlay";
@@ -20,14 +20,20 @@ const isVideoFile = (type, name) =>
 
 export default function GifPage() {
   const { media, setMedia, toast } = useMedia();
-  const [opts, setOpts] = useState({ scale: 100, fps: 15, speed: 1, colors: 128, reverse: false, loop: true, brightness: 100, contrast: 100, saturation: 100, sharpen: 0, grayscale: 0, crop: null });
-  const [frameImg, setFrameImg] = useState(null); // 1º quadro (para o overlay de corte)
+  const [opts, setOpts] = useState({
+    scale: 100, fps: 15, speed: 1, colors: 128, reverse: false, loop: true,
+    brightness: 100, contrast: 100, saturation: 100, sharpen: 0, grayscale: 0,
+    crop: null, rotate: 0, flipH: false, flipV: false,
+    trimStart: 0, trimEnd: 0, useCustomSize: false, customW: 0, customH: 0,
+  });
+  const [frameImg, setFrameImg] = useState(null);
   const [cropping, setCropping] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState(null);
-  const [result, setResult] = useState(null); // { url, size, name }
-  // Batch mode: mesmos ajustes aplicados a vários arquivos, formato preservado.
-  const [batch, setBatch] = useState([]); // [{id,file,name,size,type,progress}]
+  const [result, setResult] = useState(null);
+  const [duration, setDuration] = useState(0);
+  const [batch, setBatch] = useState([]);
   const [batchOuts, setBatchOuts] = useState({});
   const [batchBusy, setBatchBusy] = useState(false);
   const [batchReport, setBatchReport] = useState(null);
@@ -37,7 +43,19 @@ export default function GifPage() {
 
   const isVideo = media?.type?.startsWith("video/");
 
-  // Open the crop overlay on the 1st frame (works for GIF and video).
+  useEffect(() => {
+    if (!media || !isVideo) { setDuration(0); return; }
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.onloadedmetadata = () => {
+      const d = Math.floor(v.duration || 0);
+      setDuration(d);
+      patch({ trimEnd: d });
+      URL.revokeObjectURL(v.src);
+    };
+    v.src = URL.createObjectURL(media.file);
+  }, [media?.url]);
+
   const openCrop = async () => {
     if (!media) return;
     try {
@@ -57,15 +75,24 @@ export default function GifPage() {
     } catch { toast("Não foi possível abrir o corte.", "error"); }
   };
 
-  // CSS filter string for the LIVE preview (approximates the FFmpeg result).
-  const cssFilter = `brightness(${opts.brightness}%) contrast(${opts.contrast}%) saturate(${opts.saturation}%) grayscale(${opts.grayscale}%)`;
+  const cssFilter = [
+    `brightness(${opts.brightness}%)`,
+    `contrast(${opts.contrast}%)`,
+    `saturate(${opts.saturation}%)`,
+    `grayscale(${opts.grayscale}%)`,
+  ].join(" ");
 
-  // Color/adjust filters translated to FFmpeg (applied to every frame).
+  const cssTransform = [
+    opts.rotate ? `rotate(${opts.rotate}deg)` : "",
+    opts.flipH ? "scaleX(-1)" : "",
+    opts.flipV ? "scaleY(-1)" : "",
+  ].filter(Boolean).join(" ");
+
   const colorFilters = () => {
     const out = [];
-    const b = (opts.brightness - 100) / 100;      // -1..1
-    const c = opts.contrast / 100;                 // 0..2 (1 = normal)
-    let s = opts.saturation / 100;                 // 0..3 (1 = normal)
+    const b = (opts.brightness - 100) / 100;
+    const c = opts.contrast / 100;
+    let s = opts.saturation / 100;
     if (opts.grayscale) s *= 1 - opts.grayscale / 100;
     if (b !== 0 || c !== 1 || s !== 1) out.push(`eq=brightness=${b.toFixed(3)}:contrast=${c.toFixed(3)}:saturation=${s.toFixed(3)}`);
     if (opts.sharpen > 0) out.push(`unsharp=5:5:${(opts.sharpen / 100 * 1.5).toFixed(2)}:5:5:0`);
@@ -74,17 +101,38 @@ export default function GifPage() {
 
   const cropFilter = () => (opts.crop ? [`crop=${opts.crop.w}:${opts.crop.h}:${opts.crop.x}:${opts.crop.y}`] : []);
 
-  // FFmpeg args built from the current options — preserving format.
+  const transformFilters = () => {
+    const out = [];
+    if (opts.rotate === 90) out.push("transpose=1");
+    else if (opts.rotate === 180) out.push("transpose=1,transpose=1");
+    else if (opts.rotate === 270) out.push("transpose=2");
+    if (opts.flipH) out.push("hflip");
+    if (opts.flipV) out.push("vflip");
+    return out;
+  };
+
+  const sizeFilters = () => {
+    if (opts.useCustomSize && opts.customW > 0 && opts.customH > 0) {
+      return [`scale=${Math.round(opts.customW / 2) * 2}:${Math.round(opts.customH / 2) * 2}`];
+    }
+    if (opts.scale !== 100) return [`scale=trunc(iw*${opts.scale / 100}/2)*2:-2`];
+    return [];
+  };
+
   const buildArgs = (inName, it) => {
-    const vf = [...cropFilter(), ...colorFilters()];
-    if (opts.scale !== 100) vf.push(`scale=trunc(iw*${opts.scale / 100}/2)*2:-2`);
+    const vf = [...cropFilter(), ...transformFilters(), ...colorFilters(), ...sizeFilters()];
     if (opts.speed !== 1) vf.push(`setpts=${(1 / opts.speed).toFixed(3)}*PTS`);
     if (opts.reverse) vf.push("reverse");
+
+    const inputArgs = ["-i", inName];
+    if (isVideoFile(it.type, it.name) && opts.trimStart > 0) inputArgs.unshift("-ss", `${opts.trimStart}`);
+    if (isVideoFile(it.type, it.name) && opts.trimEnd > 0 && opts.trimEnd < duration) inputArgs.push("-t", `${opts.trimEnd - (opts.trimStart || 0)}`);
+
     if (isVideoFile(it.type, it.name)) {
       const isWebm = (it.name.split(".").pop() || "").toLowerCase() === "webm";
       const outExt = isWebm ? "webm" : "mp4";
       const outName = `out.${outExt}`;
-      const args = ["-i", inName];
+      const args = [...inputArgs];
       if (vf.length) args.push("-vf", vf.join(","));
       args.push("-r", `${opts.fps}`);
       if (isWebm) args.push("-c:v", "libvpx-vp9", "-crf", "30", "-b:v", "0", "-c:a", "libopus");
@@ -94,7 +142,7 @@ export default function GifPage() {
     }
     const filter = [`fps=${opts.fps}`, ...vf].join(",");
     return {
-      args: ["-i", inName, "-vf", `${filter},split[s0][s1];[s0]palettegen=max_colors=${opts.colors}[p];[s1][p]paletteuse=dither=bayer`, "-loop", opts.loop ? "0" : "-1", "out.gif"],
+      args: [...inputArgs, "-vf", `${filter},split[s0][s1];[s0]palettegen=max_colors=${opts.colors}[p];[s1][p]paletteuse=dither=bayer`, "-loop", opts.loop ? "0" : "-1", "out.gif"],
       outName: "out.gif", outType: "image/gif", ext: "gif",
     };
   };
@@ -121,7 +169,7 @@ export default function GifPage() {
           const inExt = (it.name.split(".").pop() || "gif").toLowerCase();
           const inName = `in.${inExt}`;
           const { args, outName, outType, ext } = buildArgs(inName, it);
-          const blob = await runFFmpeg({ file: it.file, inName, outName, outType, onProgress: (p) => setItemProg(it.id, p), args }); // eslint-disable-line no-await-in-loop
+          const blob = await runFFmpeg({ file: it.file, inName, outName, outType, onProgress: (p) => setItemProg(it.id, p), args });
           outs[it.id] = { blob, size: blob.size, name: `${baseName(it.name)}.${ext}` };
           ok++;
         } catch (e) {
@@ -149,7 +197,6 @@ export default function GifPage() {
     toast("ZIP do lote gerado!", "success");
   };
 
-  // Conversão EXPLÍCITA: exporta o quadro atual (com os ajustes de cor) em PNG.
   const exportFramePng = async () => {
     if (!media) return;
     try {
@@ -162,7 +209,8 @@ export default function GifPage() {
         src = await loadImage(media.url);
         w = src.naturalWidth; h = src.naturalHeight;
       }
-      if (opts.scale !== 100) { w = Math.round(w * opts.scale / 100); h = Math.round(h * opts.scale / 100); }
+      if (opts.useCustomSize && opts.customW > 0 && opts.customH > 0) { w = opts.customW; h = opts.customH; }
+      else if (opts.scale !== 100) { w = Math.round(w * opts.scale / 100); h = Math.round(h * opts.scale / 100); }
       const c = document.createElement("canvas");
       c.width = w; c.height = h;
       const ctx = c.getContext("2d");
@@ -174,6 +222,20 @@ export default function GifPage() {
     } catch (e) { console.error(e); toast("Falha ao exportar PNG.", "error"); }
   };
 
+  const handleSave = async () => {
+    if (!result?.blob || saving) return;
+    setSaving(true);
+    try {
+      await saveMedia({ name: result.name, kind: result.name.endsWith(".mp4") ? "video" : "gif", type: result.blob.type, blob: result.blob });
+      toast("Salvo na biblioteca!", "success");
+    } catch (e) {
+      console.error(e);
+      toast("Erro ao salvar. Tente novamente.", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const run = async (mode) => {
     if (!media) return;
     setBusy(true); setProgress(0); setResult(null);
@@ -182,22 +244,24 @@ export default function GifPage() {
       const inName = `in.${inExt}`;
       let outName, outType, args, kind;
 
-      const vf = [...cropFilter(), ...colorFilters()];
-      if (opts.scale !== 100) vf.push(`scale=trunc(iw*${opts.scale / 100}/2)*2:-2`);
+      const vf = [...cropFilter(), ...transformFilters(), ...colorFilters(), ...sizeFilters()];
       if (opts.speed !== 1) vf.push(`setpts=${(1 / opts.speed).toFixed(3)}*PTS`);
       if (opts.reverse) vf.push("reverse");
 
+      const inputArgs = ["-i", inName];
+      if (isVideo && opts.trimStart > 0) inputArgs.unshift("-ss", `${opts.trimStart}`);
+      if (isVideo && opts.trimEnd > 0 && opts.trimEnd < duration) inputArgs.push("-t", `${opts.trimEnd - (opts.trimStart || 0)}`);
+
       if (mode === "to-video") {
         outName = "out.mp4"; outType = "video/mp4"; kind = "video";
-        args = ["-i", inName, "-c:v", "libx264", "-crf", "23", "-preset", "veryfast", "-movflags", "faststart", "-pix_fmt", "yuv420p"];
+        args = [...inputArgs, "-c:v", "libx264", "-crf", "23", "-preset", "veryfast", "-movflags", "faststart", "-pix_fmt", "yuv420p"];
         if (vf.length) args.push("-vf", vf.join(","));
         args.push(outName);
       } else {
-        // Produce/optimize a GIF using a palette for good quality + small size.
         outName = "out.gif"; outType = "image/gif"; kind = "gif";
         const filter = [`fps=${opts.fps}`, ...vf].join(",");
         args = [
-          "-i", inName,
+          ...inputArgs,
           "-vf", `${filter},split[s0][s1];[s0]palettegen=max_colors=${opts.colors}[p];[s1][p]paletteuse=dither=bayer`,
           "-loop", opts.loop ? "0" : "-1",
           outName,
@@ -256,9 +320,9 @@ export default function GifPage() {
             <div className="mb-3 text-sm font-semibold text-ink flex items-center gap-2"><Play className="h-4 w-4 text-brand-500" /> {batch.length > 0 ? "Preview (1º do lote)" : "Original"}</div>
             <div className="grid place-items-center rounded-xl checkerboard p-4 min-h-[220px]">
               {isVideo ? (
-                <video src={media.url} controls autoPlay loop muted className="max-h-[46vh] rounded-lg" style={{ filter: cssFilter }} />
+                <video src={media.url} controls autoPlay loop muted className="max-h-[46vh] rounded-lg" style={{ filter: cssFilter, transform: cssTransform }} />
               ) : (
-                <img src={media.url} alt="" className="max-h-[46vh] rounded-lg" style={{ filter: cssFilter }} />
+                <img src={media.url} alt="" className="max-h-[46vh] rounded-lg" style={{ filter: cssFilter, transform: cssTransform }} />
               )}
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2">
@@ -266,7 +330,7 @@ export default function GifPage() {
               <Stat label="Tipo" value={isVideo ? "Vídeo" : "GIF"} />
               <Stat label="Nome" value={media.name.slice(0, 12) + (media.name.length > 12 ? "…" : "")} />
             </div>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex gap-2 flex-wrap">
               <button onClick={openCrop} className={`chip flex-1 justify-center ${opts.crop ? "!border-brand-200 !bg-brand-50 !text-brand-500" : ""}`}><Crop className="h-3.5 w-3.5" /> {opts.crop ? "Corte ativo" : "Recortar"}</button>
               {opts.crop && <button onClick={() => patch({ crop: null })} className="chip justify-center hover:!text-red-500"><XIcon className="h-3.5 w-3.5" /> Remover corte</button>}
             </div>
@@ -279,27 +343,32 @@ export default function GifPage() {
                 <div className="text-sm font-semibold text-ink flex items-center gap-2"><Package className="h-4 w-4 text-brand-500" /> Lote · {batch.length} arquivo(s)</div>
                 {batchReport && <div className="text-xs"><span className="text-emerald-500">{batchReport.ok} ok</span>{batchReport.err ? <span className="text-red-500"> · {batchReport.err} erro</span> : null}</div>}
               </div>
-              <p className="mb-3 text-[11px] text-amber-600">🔒 Os ajustes atuais valem para todos. Formato preservado (GIF→GIF, vídeo→vídeo).</p>
+              <p className="mb-3 text-[11px] text-amber-600">Os ajustes atuais valem para todos. Formato preservado (GIF→GIF, vídeo→vídeo).</p>
               <div className="space-y-2 max-h-[42vh] overflow-auto pr-1">
                 {batch.map((it) => {
                   const out = batchOuts[it.id];
                   return (
                     <div key={it.id} className="rounded-xl bg-[#F6F5F6] border border-line p-2.5">
                       <div className="flex items-center gap-3">
-                        <div className={`h-8 w-8 shrink-0 grid place-items-center rounded-lg ${out ? "bg-emerald-50 text-emerald-500" : "bg-brand-50 text-brand-500"}`}>
-                          {out ? <CheckCircle2 className="h-4 w-4" /> : batchBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" />}
+                        <div className={`h-8 w-8 shrink-0 grid place-items-center rounded-lg ${out?.error ? "bg-red-50 text-red-500" : out ? "bg-emerald-50 text-emerald-500" : "bg-brand-50 text-brand-500"}`}>
+                          {out?.error ? <XIcon className="h-4 w-4" /> : out ? <CheckCircle2 className="h-4 w-4" /> : batchBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" />}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-xs font-medium text-ink">{it.name}</div>
                           <div className="text-[11px] text-subtle">
-                            {(it.type.split("/")[1] || it.name.split(".").pop() || "?").toUpperCase()} · {formatBytes(it.size)}
-                            {out && <span className="text-emerald-500"> → {formatBytes(out.size)}</span>}
+                            {out?.error
+                              ? <span className="text-red-500">{out.error}</span>
+                              : <>
+                                  {(it.type.split("/")[1] || it.name.split(".").pop() || "?").toUpperCase()} · {formatBytes(it.size)}
+                                  {out && <span className="text-emerald-500"> → {formatBytes(out.size)}</span>}
+                                </>
+                            }
                           </div>
                         </div>
-                        {out ? (
+                        {out?.blob ? (
                           <button onClick={() => downloadBlob(out.blob, out.name)} className="btn-soft !p-2 shrink-0" title="Baixar"><Download className="h-4 w-4" /></button>
                         ) : (
-                          !batchBusy && <button onClick={() => removeBatch(it.id)} className="btn-soft !p-2 shrink-0 hover:!text-red-500" title="Remover"><XIcon className="h-4 w-4" /></button>
+                          !batchBusy && !out?.error && <button onClick={() => removeBatch(it.id)} className="btn-soft !p-2 shrink-0 hover:!text-red-500" title="Remover"><XIcon className="h-4 w-4" /></button>
                         )}
                       </div>
                       {batchBusy && !out && it.progress > 0 && <div className="mt-2"><ProgressBar value={it.progress} /></div>}
@@ -335,8 +404,9 @@ export default function GifPage() {
                     <Stat label="Economia" value={`${Math.max(0, Math.round((1 - result.size / media.size) * 100))}%`} accent="text-emerald-500" />
                   </div>
                   <div className="flex gap-2 mt-3">
-                    <button onClick={async () => { await saveMedia({ name: result.name, kind: result.name.endsWith(".mp4") ? "video" : "gif", type: result.blob.type, blob: result.blob }); toast("Salvo na biblioteca!", "success"); }} className="btn-ghost flex-1">
-                      <Save className="h-4 w-4" /> Salvar
+                    <button onClick={handleSave} disabled={saving} className="btn-ghost flex-1">
+                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      {saving ? "Salvando…" : "Salvar"}
                     </button>
                     <button onClick={() => downloadBlob(result.blob, result.name)} className="btn-primary flex-[1.4]">
                       <Download className="h-4 w-4" /> Baixar {result.name.endsWith(".mp4") ? "vídeo" : "GIF"}
@@ -357,8 +427,47 @@ export default function GifPage() {
             <Slider label="Preto e Branco" value={opts.grayscale} min={0} max={100} unit="%" onChange={(v) => patch({ grayscale: v })} onReset={() => patch({ grayscale: 0 })} />
           </Panel>
 
+          <Panel title="Transformar" icon={RotateCw}>
+            <div className="space-y-3">
+              <div>
+                <div className="text-xs font-medium text-subtle mb-1.5">Rotação</div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[0, 90, 180, 270].map((deg) => (
+                    <button key={deg} onClick={() => patch({ rotate: deg })} className={`chip justify-center text-xs ${opts.rotate === deg ? "!border-brand-200 !bg-brand-50 !text-brand-500" : ""}`}>{deg}°</button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => patch({ flipH: !opts.flipH })} className={`chip flex-1 justify-center ${opts.flipH ? "!border-brand-200 !bg-brand-50 !text-brand-500" : ""}`}><FlipHorizontal2 className="h-3.5 w-3.5" /> Flip H</button>
+                <button onClick={() => patch({ flipV: !opts.flipV })} className={`chip flex-1 justify-center ${opts.flipV ? "!border-brand-200 !bg-brand-50 !text-brand-500" : ""}`}><FlipVertical2 className="h-3.5 w-3.5" /> Flip V</button>
+              </div>
+            </div>
+          </Panel>
+
+          <Panel title="Tamanho" icon={Maximize2}>
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <button onClick={() => patch({ useCustomSize: false })} className={`chip flex-1 justify-center text-xs ${!opts.useCustomSize ? "!border-brand-200 !bg-brand-50 !text-brand-500" : ""}`}>Escala %</button>
+                <button onClick={() => patch({ useCustomSize: true })} className={`chip flex-1 justify-center text-xs ${opts.useCustomSize ? "!border-brand-200 !bg-brand-50 !text-brand-500" : ""}`}>Dimensão px</button>
+              </div>
+              {opts.useCustomSize ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] text-subtle">Largura</label>
+                    <input type="number" min={16} max={4096} value={opts.customW || ""} onChange={(e) => patch({ customW: +e.target.value })} placeholder="px" className="mt-0.5 w-full rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-ink focus:border-brand-300 focus:ring-1 focus:ring-brand-200 outline-none" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-subtle">Altura</label>
+                    <input type="number" min={16} max={4096} value={opts.customH || ""} onChange={(e) => patch({ customH: +e.target.value })} placeholder="px" className="mt-0.5 w-full rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-ink focus:border-brand-300 focus:ring-1 focus:ring-brand-200 outline-none" />
+                  </div>
+                </div>
+              ) : (
+                <Slider label="Escala" value={opts.scale} min={10} max={100} unit="%" onChange={(v) => patch({ scale: v })} />
+              )}
+            </div>
+          </Panel>
+
           <Panel title="Ajustes do GIF" icon={Gauge}>
-            <Slider label="Tamanho (escala)" value={opts.scale} min={10} max={100} unit="%" onChange={(v) => patch({ scale: v })} />
             <Slider label="FPS" value={opts.fps} min={5} max={30} onChange={(v) => patch({ fps: v })} />
             <Slider label="Velocidade" value={opts.speed} min={0.25} max={3} step={0.25} unit="×" onChange={(v) => patch({ speed: v })} />
             <Slider label="Cores (qualidade)" value={opts.colors} min={16} max={256} step={16} onChange={(v) => patch({ colors: v })} />
@@ -367,6 +476,14 @@ export default function GifPage() {
               <button onClick={() => patch({ loop: !opts.loop })} className={`chip flex-1 justify-center ${opts.loop ? "!border-brand-200 !bg-brand-50 !text-brand-500" : ""}`}><RotateCcw className="h-3.5 w-3.5" /> Loop infinito</button>
             </div>
           </Panel>
+
+          {isVideo && duration > 0 && (
+            <Panel title="Cortar trecho" icon={Scissors}>
+              <Slider label="Início" value={opts.trimStart} min={0} max={Math.max(0, (opts.trimEnd || duration) - 1)} unit="s" onChange={(v) => patch({ trimStart: v })} />
+              <Slider label="Fim" value={opts.trimEnd} min={Math.min(opts.trimStart + 1, duration)} max={duration} unit="s" onChange={(v) => patch({ trimEnd: v })} />
+              <p className="text-[11px] text-subtle mt-1">Duração: {opts.trimEnd - opts.trimStart}s (de {duration}s)</p>
+            </Panel>
+          )}
 
           {batch.length > 0 ? (
             <Panel title="Aplicar em lote" icon={Package}>
@@ -390,7 +507,7 @@ export default function GifPage() {
               <button disabled={busy} onClick={exportFramePng} className="btn-ghost w-full">
                 <ImageIcon className="h-4 w-4" /> Baixar quadro (PNG)
               </button>
-              <p className="mt-3 text-xs text-subtle">O "Baixar quadro (PNG)" é uma conversão (vira imagem parada). O resto mantém o formato. FFmpeg baixa ~30&nbsp;MB na 1ª vez.</p>
+              <p className="mt-3 text-xs text-subtle">FFmpeg baixa ~30&nbsp;MB na 1ª vez.</p>
             </Panel>
           )}
         </div>
