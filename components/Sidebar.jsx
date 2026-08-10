@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Home, Image as ImageIcon, Film, Video, Repeat, Gauge,
   Layers, History, Settings, Sparkles, Menu, X, TerminalSquare, FolderHeart, MessagesSquare,
-  Smile, Laugh, QrCode, ShieldCheck, Rocket, Wand2, Search, Star, ChevronDown, LayoutTemplate, Cog, FolderOpen,
+  Smile, Laugh, QrCode, ShieldCheck, Rocket, Wand2, Search, Star, ChevronDown, LayoutTemplate, Cog, FolderOpen, Handshake,
 } from "lucide-react";
 import { DISCORD_INVITE } from "@/lib/utils";
 
@@ -40,6 +40,7 @@ const GROUPS = [
   },
   {
     id: "sistema", label: "Sistema", icon: Cog, items: [
+      { href: "/parceria", label: "Parceria", icon: Handshake },
       { href: "/atualizacoes", label: "Atualizações", icon: Rocket },
       { href: "/settings", label: "Configurações", icon: Settings },
     ],
