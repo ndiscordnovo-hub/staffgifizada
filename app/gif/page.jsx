@@ -39,6 +39,7 @@ export default function GifPage() {
   const [batchBusy, setBatchBusy] = useState(false);
   const [batchReport, setBatchReport] = useState(null);
   const [stages, setStages] = useState([]);
+  const [overlayResult, setOverlayResult] = useState(null);
   const [savingProject, setSavingProject] = useState(false);
   const patch = (p) => setOpts((o) => ({ ...o, ...p }));
 
@@ -349,14 +350,22 @@ export default function GifPage() {
       setResult({ url, size: blob.size, name, blob });
       addHistory({ id: name + Date.now(), name, kind, size: blob.size, thumb: null });
       updateStage("generate", "done");
-      toast("Processamento concluído!", "success");
+      setBusy(false); setProgress(null);
+      setOverlayResult({
+        title: kind === "video" ? "Vídeo exportado!" : "GIF gerado!",
+        items: [
+          { label: "Formato", value: kind === "video" ? "MP4" : "GIF" },
+          { label: "Tamanho", value: formatBytes(blob.size), accent: blob.size < media.size ? "text-emerald-400" : "text-white" },
+          { label: "Original", value: formatBytes(media.size) },
+          { label: "Redução", value: `${Math.max(0, Math.round((1 - blob.size / media.size) * 100))}%`, accent: "text-emerald-400" },
+        ],
+      });
     } catch (e) {
       console.error(e);
       setStages((s) => s.map((st) => (st.status !== "done" ? { ...st, status: "error" } : st)));
       toast("Falha ao processar. Tente um arquivo menor.", "error");
-    } finally {
       setBusy(false); setProgress(null);
-      setTimeout(() => setStages([]), 600);
+      setTimeout(() => setStages([]), 2000);
     }
   };
 
@@ -377,7 +386,7 @@ export default function GifPage() {
   return (
     <div className="space-y-6">
       <Header onNew={exitBatch} batchCount={batch.length} />
-      <ProcessingOverlay open={busy || batchBusy} progress={busy ? progress : null} title={batchBusy ? "Aplicando no lote…" : "Processando…"} stages={stages} />
+      <ProcessingOverlay open={busy || batchBusy || overlayResult != null} progress={busy ? progress : null} title={batchBusy ? "Aplicando no lote…" : "Processando…"} stages={stages} result={overlayResult} onClose={() => { setOverlayResult(null); setStages([]); }} />
       <div className="grid lg:grid-cols-[1fr_360px] gap-5 items-start">
         <div className="space-y-4">
           {cropping && frameImg ? (

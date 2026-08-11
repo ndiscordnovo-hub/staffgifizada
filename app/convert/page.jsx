@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Repeat, Download, ArrowRight, Save } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
+import ProcessingOverlay from "@/components/ProcessingOverlay";
 import { Panel, Segmented, ProgressBar, Stat, EmptyState } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
 import { loadImage, toBlob } from "@/lib/imageProcessor";
@@ -23,6 +24,8 @@ export default function ConvertPage() {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(null);
   const [result, setResult] = useState(null);
+  const [stages, setStages] = useState([]);
+  const [overlayResult, setOverlayResult] = useState(null);
 
   const category = !media ? null : media.type === "image/gif" ? "gif" : media.type.startsWith("video/") ? "video" : "image";
 
@@ -32,14 +35,29 @@ export default function ConvertPage() {
 
   useEffect(() => () => { if (result?.url) URL.revokeObjectURL(result.url); }, [result]);
 
+  const updateStage = (id, status, detail) =>
+    setStages((s) => s.map((st) => (st.id === id ? { ...st, status, ...(detail !== undefined ? { detail } : {}) } : st)));
+
   const run = async () => {
+    const pipeStages = [
+      { id: "load", label: "Carregando arquivo", status: "waiting" },
+      { id: "process", label: "Convertendo formato", status: "waiting" },
+      { id: "optimize", label: "Finalizando saída", status: "waiting" },
+      { id: "generate", label: "Gerando resultado", status: "waiting" },
+    ];
+    setStages(pipeStages);
     setBusy(true); setProgress(null); setResult(null);
+    updateStage("load", "loading");
     try {
       let blob, ext = to;
       if (category === "image" && to !== "gif") {
+        updateStage("load", "done");
+        updateStage("process", "processing");
         const img = await loadImage(media.url);
         blob = await toBlob(img, { format: to, quality: 0.92 }, canvasRef.current);
         ext = to === "jpeg" ? "jpg" : to;
+        updateStage("process", "done");
+        updateStage("optimize", "done");
       } else {
         setProgress(0);
         const inExt = media.name.split(".").pop() || "bin";
@@ -59,15 +77,42 @@ export default function ConvertPage() {
           outName = "out.mp4"; outType = "video/mp4"; ext = "mp4";
           args = ["-i", inName, "-c:v", "libx264", "-crf", "24", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-movflags", "faststart", "-c:a", "aac", outName];
         }
-        blob = await runFFmpeg({ file: media.file, inName, outName, args, outType, onProgress: setProgress });
+        updateStage("load", "done");
+        updateStage("process", "processing");
+        blob = await runFFmpeg({
+          file: media.file, inName, outName, args, outType,
+          onProgress: (p) => {
+            setProgress(p);
+            if (p > 0 && p < 80) updateStage("process", "processing", `${p}%`);
+            if (p >= 80) { updateStage("process", "done"); updateStage("optimize", "optimizing"); }
+          },
+        });
+        updateStage("optimize", "done");
       }
+      updateStage("generate", "generating");
       const name = `${baseName(media.name)}.${ext}`;
       const url = URL.createObjectURL(blob);
       setResult({ url, size: blob.size, name, blob });
       addHistory({ id: name + Date.now(), name, kind: "convert", size: blob.size });
-      toast("Conversão concluída!", "success");
-    } catch (e) { console.error(e); toast("Falha na conversão.", "error"); }
-    finally { setBusy(false); setProgress(null); }
+      updateStage("generate", "done");
+      setBusy(false); setProgress(null);
+      const fromFmt = (media.type.split("/")[1] || "?").toUpperCase();
+      setOverlayResult({
+        title: "Conversão concluída!",
+        items: [
+          { label: "De", value: fromFmt },
+          { label: "Para", value: to.toUpperCase(), accent: "text-emerald-400" },
+          { label: "Tamanho", value: formatBytes(blob.size) },
+          { label: "Original", value: formatBytes(media.size) },
+        ],
+      });
+    } catch (e) {
+      console.error(e);
+      setStages((s) => s.map((st) => (st.status !== "done" ? { ...st, status: "error" } : st)));
+      toast("Falha na conversão.", "error");
+      setBusy(false); setProgress(null);
+      setTimeout(() => setStages([]), 2000);
+    }
   };
 
   if (!media) {
@@ -82,6 +127,7 @@ export default function ConvertPage() {
 
   return (
     <div className="space-y-6">
+      <ProcessingOverlay open={busy || overlayResult != null} progress={progress} title="Convertendo…" stages={stages} result={overlayResult} onClose={() => { setOverlayResult(null); setStages([]); }} />
       <Header onNew={() => { setMedia(null); setResult(null); }} />
       <canvas ref={canvasRef} className="hidden" />
       <div className="grid lg:grid-cols-[1fr_360px] gap-5 items-start">

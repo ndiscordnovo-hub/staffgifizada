@@ -1,10 +1,10 @@
 export default function sitemap() {
-  const base = "https://staffgifizada.vercel.app";
+  const base = "https://gifediton.com.br";
   const routes = [
     "", "/image", "/gif", "/video", "/optimize", "/convert",
     "/batch", "/emoji", "/meme", "/qrcode", "/templates",
     "/history", "/saved", "/settings", "/atualizacoes",
-    "/termos", "/privacidade",
+    "/projects", "/parceria", "/termos", "/privacidade",
   ];
   return routes.map((r) => ({
     url: `${base}${r}`,

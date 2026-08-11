@@ -30,6 +30,7 @@ export default function VideoPage() {
   const [progress, setProgress] = useState(null);
   const [result, setResult] = useState(null);
   const [stages, setStages] = useState([]);
+  const [overlayResult, setOverlayResult] = useState(null);
   const [savingProject, setSavingProject] = useState(false);
   const patch = (p) => setOpts((o) => ({ ...o, ...p }));
 
@@ -181,14 +182,23 @@ export default function VideoPage() {
       setResult({ url, size: blob.size, name, blob, kind });
       addHistory({ id: name + Date.now(), name, kind, size: blob.size });
       updateStage("generate", "done");
-      toast("Vídeo processado!", "success");
+      setBusy(false); setProgress(null);
+      const kindLabel = kind === "gif" ? "GIF" : kind === "audio" ? "MP3" : ext.toUpperCase();
+      setOverlayResult({
+        title: kind === "audio" ? "Áudio extraído!" : kind === "gif" ? "GIF gerado!" : "Vídeo exportado!",
+        items: [
+          { label: "Formato", value: kindLabel },
+          { label: "Tamanho", value: formatBytes(blob.size), accent: blob.size < media.size ? "text-emerald-400" : "text-white" },
+          { label: "Original", value: formatBytes(media.size) },
+          { label: "Redução", value: `${Math.max(0, Math.round((1 - blob.size / media.size) * 100))}%`, accent: "text-emerald-400" },
+        ],
+      });
     } catch (e) {
       console.error(e);
       setStages((s) => s.map((st) => (st.status !== "done" ? { ...st, status: "error" } : st)));
       toast("Falha ao processar o vídeo.", "error");
-    } finally {
       setBusy(false); setProgress(null);
-      setTimeout(() => setStages([]), 600);
+      setTimeout(() => setStages([]), 2000);
     }
   };
 
@@ -209,7 +219,7 @@ export default function VideoPage() {
   return (
     <div className="space-y-6">
       <Header onNew={() => { setMedia(null); setResult(null); }} />
-      <ProcessingOverlay open={busy} progress={progress} title={busyTitle} stages={stages} />
+      <ProcessingOverlay open={busy || overlayResult != null} progress={progress} title={busyTitle} stages={stages} result={overlayResult} onClose={() => { setOverlayResult(null); setStages([]); }} />
       <div className="grid lg:grid-cols-[1fr_360px] gap-5 items-start">
         <div className="space-y-4">
           {cropping && frameImg ? (

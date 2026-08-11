@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { QrCode, Download, Save } from "lucide-react";
+import ProcessingOverlay from "@/components/ProcessingOverlay";
 import { Panel, Slider, Segmented, Stat } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
 import { downloadBlob, DISCORD_INVITE } from "@/lib/utils";
@@ -24,6 +25,12 @@ export default function QrCodePage() {
   const [light, setLight] = useState("#ffffff");
   const [ecc, setEcc] = useState("M");
   const [logoImg, setLogoImg] = useState(null); // opcional
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const [overlayStages, setOverlayStages] = useState([]);
+  const [overlayResult, setOverlayResult] = useState(null);
+
+  const closeOverlay = () => { setOverlayOpen(false); setOverlayStages([]); setOverlayResult(null); };
+  const upStage = (id, status) => setOverlayStages((s) => s.map((st) => (st.id === id ? { ...st, status } : st)));
 
   const onLogoFile = (e) => {
     const f = e.target.files?.[0];
@@ -37,7 +44,6 @@ export default function QrCodePage() {
       if (!canvasRef.current) return;
       const QRCode = (await import("qrcode")).default;
       try {
-        // Com logo, usa correção máxima pra continuar escaneável.
         await QRCode.toCanvas(canvasRef.current, text || " ", {
           width: size, margin, errorCorrectionLevel: logoImg ? "H" : ecc,
           color: { dark, light },
@@ -48,7 +54,6 @@ export default function QrCodePage() {
           const pad = box * 0.14;
           const x = (size - box) / 2;
           const y = (size - box) / 2;
-          // fundo claro arredondado atrás do logo
           ctx.fillStyle = light;
           const r = box * 0.18;
           ctx.beginPath();
@@ -68,18 +73,64 @@ export default function QrCodePage() {
   const getBlob = () => new Promise((res) => canvasRef.current.toBlob(res, "image/png"));
 
   const download = async () => {
-    const blob = await getBlob();
-    downloadBlob(blob, "qrcode-gifedition.png");
-    toast("QR Code baixado!", "success");
+    const pipe = [
+      { id: "render", label: "Gerando QR Code", status: "waiting" },
+      { id: "generate", label: "Exportando arquivo", status: "waiting" },
+    ];
+    setOverlayStages(pipe); setOverlayResult(null); setOverlayOpen(true);
+    try {
+      upStage("render", "processing");
+      const blob = await getBlob();
+      upStage("render", "done");
+      upStage("generate", "generating");
+      downloadBlob(blob, "qrcode-gifedition.png");
+      upStage("generate", "done");
+      setOverlayResult({
+        title: "QR Code baixado!",
+        items: [
+          { label: "Tamanho", value: `${size}×${size}px` },
+          { label: "Correção", value: ecc },
+        ],
+      });
+    } catch (e) {
+      console.error(e);
+      setOverlayStages((s) => s.map((st) => (st.status !== "done" ? { ...st, status: "error" } : st)));
+      toast("Falha ao gerar QR.", "error");
+      setTimeout(closeOverlay, 2000);
+    }
   };
+
   const save = async () => {
-    const blob = await getBlob();
-    await saveMedia({ name: "qrcode.png", kind: "image", type: "image/png", blob, w: size, h: size });
-    toast("Salvo na biblioteca!", "success");
+    const pipe = [
+      { id: "render", label: "Gerando QR Code", status: "waiting" },
+      { id: "generate", label: "Salvando na biblioteca", status: "waiting" },
+    ];
+    setOverlayStages(pipe); setOverlayResult(null); setOverlayOpen(true);
+    try {
+      upStage("render", "processing");
+      const blob = await getBlob();
+      upStage("render", "done");
+      upStage("generate", "generating");
+      await saveMedia({ name: "qrcode.png", kind: "image", type: "image/png", blob, w: size, h: size });
+      upStage("generate", "done");
+      setOverlayResult({
+        title: "QR Code salvo!",
+        items: [
+          { label: "Tamanho", value: `${size}×${size}px` },
+          { label: "Ação", value: "Salvo na biblioteca", accent: "text-emerald-400" },
+        ],
+      });
+    } catch (e) {
+      console.error(e);
+      setOverlayStages((s) => s.map((st) => (st.status !== "done" ? { ...st, status: "error" } : st)));
+      toast("Falha ao salvar.", "error");
+      setTimeout(closeOverlay, 2000);
+    }
   };
 
   return (
     <div className="space-y-6">
+      <ProcessingOverlay open={overlayOpen} title="Processando QR Code…" stages={overlayStages} result={overlayResult} onClose={closeOverlay} />
       <div>
         <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><QrCode className="h-6 w-6 text-brand-500" /> Gerador de QR Code</h1>
         <p className="mt-1 text-sm text-subtle">Crie um QR Code do convite do servidor ou de qualquer link. Baixe e divulgue.</p>

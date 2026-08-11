@@ -172,14 +172,14 @@ export default function AdminPage() {
         </p>
         <ol className="text-sm text-muted list-decimal pl-5 space-y-1.5">
           <li>No Discord: <em>Configurações do canal → Integrações → Webhooks → Novo Webhook → Copiar URL</em>.</li>
-          <li>Na Vercel: <em>Project → Settings → Environment Variables</em>.</li>
+          <li>No painel da hospedagem: adicione as variáveis de ambiente do projeto.</li>
           <li>Adicione a variável com o nome da categoria e cole a URL. Ex.:</li>
         </ol>
         <div className="rounded-lg bg-black/40 border border-line p-3 font-mono text-xs text-muted overflow-x-auto">
           {CATS.map((c) => <div key={c.id}><span className="text-brand-500">{c.env}</span>=https://discord.com/api/webhooks/…</div>)}
           <div className="mt-1.5 text-subtle">WEBHOOK_DEFAULT=…  <span className="text-subtle"># (opcional) usado quando a categoria não tem webhook próprio)</span></div>
         </div>
-        <p className="text-xs text-subtle">Depois de salvar as variáveis, faça um novo deploy (ou clique em <em>Redeploy</em> na Vercel) e use os botões “Testar” acima.</p>
+        <p className="text-xs text-subtle">Depois de salvar as variáveis, faça um novo deploy e use os botões &ldquo;Testar&rdquo; acima.</p>
       </div>
     </div>
   );

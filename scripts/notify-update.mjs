@@ -1,7 +1,7 @@
 // Envia o bloco mais recente do CHANGELOG.md pro canal de Atualizações do Discord,
 // passando pelo endpoint seguro do site (/api/log, categoria "update").
 // Uso:  node scripts/notify-update.mjs [urlDoSite]
-// Ex.:  node scripts/notify-update.mjs https://staffgifizada.vercel.app
+// Ex.:  node scripts/notify-update.mjs https://gifediton.com.br
 import fs from "node:fs";
 import path from "node:path";
 

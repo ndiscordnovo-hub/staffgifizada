@@ -11,6 +11,7 @@ import {
 import Dropzone from "@/components/Dropzone";
 import ModeChooser from "@/components/ModeChooser";
 import CropOverlay from "@/components/CropOverlay";
+import ProcessingOverlay from "@/components/ProcessingOverlay";
 import { Panel, Slider, Segmented, ToolButton, Stat, EmptyState, ProgressBar } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
 import { DEFAULT_EDITS, loadImage, render, toBlob, outputSize } from "@/lib/imageProcessor";
@@ -67,6 +68,10 @@ function ImageEditorInner() {
   const [batchReport, setBatchReport] = useState(null);
 
   const [savingProject, setSavingProject] = useState(false);
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const [overlayStages, setOverlayStages] = useState([]);
+  const [overlayTitle, setOverlayTitle] = useState("Processando…");
+  const [overlayResult, setOverlayResult] = useState(null);
 
   useEffect(() => {
     const pid = sessionStorage.getItem("gifedition.resume-project");
@@ -274,34 +279,95 @@ function ImageEditorInner() {
     else patch({ resizeH: v });
   };
 
+  const closeOverlay = () => { setOverlayOpen(false); setOverlayStages([]); setOverlayResult(null); };
+
+  const updateOverlayStage = (id, status) =>
+    setOverlayStages((s) => s.map((st) => (st.id === id ? { ...st, status } : st)));
+
   const handleDownload = async () => {
     if (!img) return;
-    const blob = await toBlob(img, edits, canvasRef.current, logoImg);
-    const name = `${baseName(media.name)}-nebula.${edits.format === "jpeg" ? "jpg" : edits.format}`;
-    downloadBlob(blob, name);
-    addHistory({
-      id: name + Date.now(), name, kind: "image", size: blob.size,
-      w: size.w, h: size.h, format: edits.format,
-      thumb: canvasRef.current.toDataURL("image/jpeg", 0.5),
-    });
-    sendRemoteLog("process", {
-      title: "🖼️ Editor de Imagem",
-      fields: [
-        { name: "Status", value: "✅ Sucesso", inline: true },
-        { name: "Resolução", value: `${size.w}×${size.h}`, inline: true },
-        { name: "Formato", value: edits.format.toUpperCase(), inline: true },
-        { name: "Peso", value: `${formatBytes(media.size)} → ${formatBytes(blob.size)}`, inline: true },
-      ],
-    });
-    toast("Imagem exportada!", "success");
+    const pipe = [
+      { id: "load", label: "Aplicando ajustes", status: "waiting" },
+      { id: "process", label: "Renderizando imagem", status: "waiting" },
+      { id: "generate", label: "Gerando arquivo", status: "waiting" },
+    ];
+    setOverlayTitle("Exportando imagem…");
+    setOverlayStages(pipe);
+    setOverlayResult(null);
+    setOverlayOpen(true);
+    try {
+      updateOverlayStage("load", "processing");
+      const blob = await toBlob(img, edits, canvasRef.current, logoImg);
+      updateOverlayStage("load", "done");
+      updateOverlayStage("process", "processing");
+      const name = `${baseName(media.name)}-nebula.${edits.format === "jpeg" ? "jpg" : edits.format}`;
+      downloadBlob(blob, name);
+      addHistory({
+        id: name + Date.now(), name, kind: "image", size: blob.size,
+        w: size.w, h: size.h, format: edits.format,
+        thumb: canvasRef.current.toDataURL("image/jpeg", 0.5),
+      });
+      updateOverlayStage("process", "done");
+      updateOverlayStage("generate", "generating");
+      sendRemoteLog("process", {
+        title: "🖼️ Editor de Imagem",
+        fields: [
+          { name: "Status", value: "✅ Sucesso", inline: true },
+          { name: "Resolução", value: `${size.w}×${size.h}`, inline: true },
+          { name: "Formato", value: edits.format.toUpperCase(), inline: true },
+          { name: "Peso", value: `${formatBytes(media.size)} → ${formatBytes(blob.size)}`, inline: true },
+        ],
+      });
+      updateOverlayStage("generate", "done");
+      setOverlayResult({
+        title: "Imagem exportada!",
+        items: [
+          { label: "Formato", value: edits.format.toUpperCase() },
+          { label: "Resolução", value: `${size.w}×${size.h}` },
+          { label: "Antes", value: formatBytes(media.size) },
+          { label: "Depois", value: formatBytes(blob.size), accent: blob.size < media.size ? "text-emerald-400" : "text-white" },
+        ],
+      });
+    } catch (e) {
+      console.error(e);
+      setOverlayStages((s) => s.map((st) => (st.status !== "done" ? { ...st, status: "error" } : st)));
+      toast("Falha ao exportar.", "error");
+      setTimeout(closeOverlay, 2000);
+    }
   };
 
   const handleSave = async () => {
     if (!img) return;
-    const blob = await toBlob(img, edits, canvasRef.current, logoImg);
-    const name = `${baseName(media.name)}-nebula.${edits.format === "jpeg" ? "jpg" : edits.format}`;
-    await saveMedia({ name, kind: "image", type: blob.type, blob, w: size.w, h: size.h });
-    toast("Salvo na sua biblioteca!", "success");
+    const pipe = [
+      { id: "process", label: "Renderizando imagem", status: "waiting" },
+      { id: "generate", label: "Salvando na biblioteca", status: "waiting" },
+    ];
+    setOverlayTitle("Salvando…");
+    setOverlayStages(pipe);
+    setOverlayResult(null);
+    setOverlayOpen(true);
+    try {
+      updateOverlayStage("process", "processing");
+      const blob = await toBlob(img, edits, canvasRef.current, logoImg);
+      const name = `${baseName(media.name)}-nebula.${edits.format === "jpeg" ? "jpg" : edits.format}`;
+      updateOverlayStage("process", "done");
+      updateOverlayStage("generate", "generating");
+      await saveMedia({ name, kind: "image", type: blob.type, blob, w: size.w, h: size.h });
+      updateOverlayStage("generate", "done");
+      setOverlayResult({
+        title: "Salvo na biblioteca!",
+        items: [
+          { label: "Arquivo", value: name, wide: true },
+          { label: "Tamanho", value: formatBytes(blob.size) },
+          { label: "Formato", value: edits.format.toUpperCase() },
+        ],
+      });
+    } catch (e) {
+      console.error(e);
+      setOverlayStages((s) => s.map((st) => (st.status !== "done" ? { ...st, status: "error" } : st)));
+      toast("Falha ao salvar.", "error");
+      setTimeout(closeOverlay, 2000);
+    }
   };
 
   if (!media) {
@@ -320,6 +386,7 @@ function ImageEditorInner() {
 
   return (
     <div className="space-y-6">
+      <ProcessingOverlay open={overlayOpen} title={overlayTitle} stages={overlayStages} result={overlayResult} onClose={closeOverlay} />
       <Header onNew={exitBatch} batchCount={batch.length} />
 
       <div className="grid lg:grid-cols-[1fr_360px] gap-5 items-start">

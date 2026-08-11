@@ -11,7 +11,7 @@ import { DISCORD_INVITE, SITE_VERSION } from "@/lib/utils";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 
 export const metadata = {
-  metadataBase: new URL("https://staffgifizada.vercel.app"),
+  metadataBase: new URL("https://gifediton.com.br"),
   title: { default: "Gif Edition — Editor de mídia para Discord", template: "%s | Gif Edition" },
   description:
     "Editor gratuito de imagens, GIFs e vídeos para criadores do Discord. Processamento 100% no navegador, sem upload.",

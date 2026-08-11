@@ -1,137 +1,323 @@
 "use client";
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, CheckCircle2, Loader2, XCircle, Clock, Zap, Cpu, PackageCheck } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Check, X, ChevronRight } from "lucide-react";
 
 const STAGE_META = {
-  waiting:    { label: "Aguardando",        icon: Clock,        color: "text-slate-400",   bg: "bg-slate-100" },
-  loading:    { label: "Carregando FFmpeg", icon: Zap,          color: "text-amber-500",   bg: "bg-amber-50" },
-  processing: { label: "Processando",      icon: Cpu,          color: "text-blue-500",    bg: "bg-blue-50" },
-  optimizing: { label: "Otimizando",       icon: Sparkles,     color: "text-purple-500",  bg: "bg-purple-50" },
-  generating: { label: "Gerando arquivo",  icon: PackageCheck,  color: "text-emerald-500", bg: "bg-emerald-50" },
-  done:       { label: "Concluído",         icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-50" },
-  error:      { label: "Erro",             icon: XCircle,      color: "text-red-500",     bg: "bg-red-50" },
+  waiting:    { label: "Aguardando" },
+  loading:    { label: "Carregando" },
+  processing: { label: "Processando" },
+  optimizing: { label: "Otimizando" },
+  generating: { label: "Gerando" },
+  done:       { label: "Concluído" },
+  error:      { label: "Erro" },
 };
 
-const DEFAULT_MSGS = [
-  "Preparando os quadros…",
-  "Aplicando os ajustes…",
-  "Otimizando as cores…",
-  "Montando a animação…",
-  "Quase lá…",
-];
+const ACTIVE = new Set(["processing", "loading", "optimizing", "generating"]);
 
-export default function ProcessingOverlay({ open, progress, title = "Processando", messages = DEFAULT_MSGS, stages }) {
-  const [msgIndex, setMsgIndex] = useState(0);
+export default function ProcessingOverlay({ open, progress, title = "Processando…", stages, result, onClose }) {
+  const [visible, setVisible] = useState(false);
+  const [show, setShow] = useState(false);
 
   useEffect(() => {
-    if (!open) { setMsgIndex(0); return; }
-    const id = setInterval(() => setMsgIndex((i) => (i + 1) % messages.length), 2200);
-    return () => clearInterval(id);
-  }, [open, messages.length]);
+    if (open) {
+      setVisible(true);
+      requestAnimationFrame(() => requestAnimationFrame(() => setShow(true)));
+    } else {
+      setShow(false);
+      const t = setTimeout(() => setVisible(false), 300);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
+
+  if (!visible) return null;
 
   const pct = typeof progress === "number" ? Math.min(100, Math.max(0, progress)) : null;
   const hasStages = stages && stages.length > 0;
+  const showResult = result != null;
 
   return (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          className="fixed inset-0 z-[300] grid place-items-center p-4 bg-black/80 backdrop-blur-xl"
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    <div
+      className="fixed inset-0 z-[300] flex items-center justify-center p-4 transition-opacity duration-300"
+      style={{ opacity: show ? 1 : 0, pointerEvents: show ? "auto" : "none" }}
+    >
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 transition-all duration-300"
+        style={{
+          background: "rgba(0,0,0,0.85)",
+          backdropFilter: show ? "blur(12px)" : "blur(0px)",
+        }}
+        onClick={onClose}
+      />
+
+      {/* Card */}
+      <div
+        className="relative w-full max-w-[360px] transition-all duration-300"
+        style={{
+          transform: show ? "translateY(0) scale(1)" : "translateY(20px) scale(0.96)",
+          opacity: show ? 1 : 0,
+        }}
+      >
+        {/* Animated border */}
+        <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+          <div
+            className="absolute inset-0"
+            style={{
+              background: showResult
+                ? "conic-gradient(from var(--border-angle, 0deg), rgba(16,185,129,0.15) 0%, rgba(16,185,129,0.4) 25%, rgba(16,185,129,0.15) 50%, rgba(16,185,129,0.4) 75%)"
+                : "conic-gradient(from var(--border-angle, 0deg), transparent 30%, rgba(230,57,70,0.5) 50%, rgba(255,107,129,0.3) 55%, transparent 70%)",
+              animation: "overlayBorderSpin 3s linear infinite",
+            }}
+          />
+          <div className="absolute inset-[1px] rounded-[15px]" style={{ background: "#0d0f16" }} />
+        </div>
+
+        {/* Inner card content */}
+        <div
+          className="relative rounded-2xl overflow-hidden"
+          style={{
+            background: "#0d0f16",
+            boxShadow: showResult
+              ? "0 0 80px rgba(16,185,129,0.08), 0 25px 60px rgba(0,0,0,0.5)"
+              : "0 0 80px rgba(230,57,70,0.06), 0 25px 60px rgba(0,0,0,0.5)",
+          }}
         >
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            transition={{ type: "spring", stiffness: 300, damping: 26 }}
-            className="glass-strong w-full max-w-sm rounded-3xl p-8 text-center shadow-card"
-          >
-            {/* Animated ring */}
-            <div className="relative mx-auto h-28 w-28">
-              <div className="absolute inset-0 rounded-full animate-spin" style={{ animationDuration: "1.5s", background: "conic-gradient(from 0deg, transparent 0%, #e63946 70%, #ff9195 100%)", WebkitMask: "radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 9px))", mask: "radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 9px))" }} />
-              <div className="absolute inset-0 rounded-full border-[9px] border-white/5" />
-              <div className="absolute inset-0 grid place-items-center">
+          {/* X close */}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 h-7 w-7 rounded-lg flex items-center justify-center z-10 hover:bg-white/10 transition-colors"
+              style={{ background: "rgba(255,255,255,0.04)" }}
+              aria-label="Fechar"
+            >
+              <X className="h-3.5 w-3.5 text-white/30" />
+            </button>
+          )}
+
+          {showResult ? (
+            /* ───── RESULT VIEW ───── */
+            <div className="p-7">
+              {/* Success icon */}
+              <div className="flex justify-center mb-5">
+                <div className="relative">
+                  <div
+                    className="h-[72px] w-[72px] rounded-full flex items-center justify-center animate-[overlayScaleIn_0.4s_ease-out]"
+                    style={{
+                      background: "radial-gradient(circle at 30% 30%, rgba(16,185,129,0.2), rgba(16,185,129,0.05))",
+                      border: "2px solid rgba(16,185,129,0.2)",
+                      boxShadow: "0 0 40px rgba(16,185,129,0.15)",
+                    }}
+                  >
+                    <Check className="h-8 w-8 text-emerald-400 animate-[overlayScaleIn_0.3s_ease-out_0.15s_both]" strokeWidth={2.5} />
+                  </div>
+                  <div
+                    className="absolute inset-0 rounded-full animate-[overlayRipple_0.8s_ease-out_0.2s_both]"
+                    style={{ border: "2px solid rgba(16,185,129,0.15)" }}
+                  />
+                </div>
+              </div>
+
+              {/* Title */}
+              <h3 className="text-[15px] font-semibold text-white text-center mb-5 animate-[overlayFadeUp_0.3s_ease-out_0.15s_both]">
+                {result.title || "Concluído!"}
+              </h3>
+
+              {/* Stats */}
+              {result.items?.length > 0 && (
+                <div className="space-y-2">
+                  {result.items.map((item, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between py-2.5 px-4 rounded-xl animate-[overlaySlideIn_0.3s_ease-out_both]"
+                      style={{
+                        animationDelay: `${0.2 + i * 0.06}s`,
+                        background: "rgba(255,255,255,0.03)",
+                        border: "1px solid rgba(255,255,255,0.04)",
+                      }}
+                    >
+                      <span className="text-[12px] text-white/35 uppercase tracking-wide">{item.label}</span>
+                      <span className={`text-[13px] font-semibold ${item.accent || "text-white/90"}`}>{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Close button */}
+              <button
+                onClick={onClose}
+                className="mt-6 w-full py-3 rounded-xl text-[13px] font-semibold text-white transition-all duration-200 hover:brightness-110 active:scale-[0.98] animate-[overlayFadeUp_0.3s_ease-out_0.4s_both]"
+                style={{
+                  background: "linear-gradient(135deg, #10b981, #059669)",
+                  boxShadow: "0 4px 20px rgba(16,185,129,0.2)",
+                }}
+              >
+                Fechar
+              </button>
+            </div>
+          ) : (
+            /* ───── PROCESSING VIEW ───── */
+            <div className="p-7">
+              {/* Title */}
+              <h3 className="text-[15px] font-semibold text-white text-center mb-4">{title}</h3>
+
+              {/* Progress */}
+              <div className="mb-5">
                 {pct != null ? (
-                  <span className="text-2xl font-extrabold tabular-nums text-white">{pct}<span className="text-sm text-white/50">%</span></span>
+                  <>
+                    <div className="flex justify-between mb-1.5">
+                      <span className="text-[11px] text-white/25">Progresso</span>
+                      <span className="text-[11px] text-white/50 tabular-nums font-mono">{Math.round(pct)}%</span>
+                    </div>
+                    <div className="h-[3px] w-full rounded-full overflow-hidden" style={{ background: "#1a1d2e" }}>
+                      <div
+                        className="h-full rounded-full transition-all duration-300 ease-out"
+                        style={{
+                          width: `${pct}%`,
+                          background: "linear-gradient(90deg, #e63946, #ff6b81)",
+                        }}
+                      />
+                    </div>
+                  </>
                 ) : (
-                  <motion.div animate={{ scale: [1, 1.15, 1] }} transition={{ repeat: Infinity, duration: 1.4 }}>
-                    <Sparkles className="h-8 w-8 text-brand-300" />
-                  </motion.div>
+                  <div className="h-[3px] w-full rounded-full overflow-hidden" style={{ background: "#1a1d2e" }}>
+                    <div
+                      className="h-full rounded-full animate-[overlayShimmer_1.5s_linear_infinite]"
+                      style={{
+                        width: "100%",
+                        background: "linear-gradient(90deg, #e63946, #ff6b81, #e63946)",
+                        backgroundSize: "200% 100%",
+                      }}
+                    />
+                  </div>
                 )}
               </div>
-            </div>
 
-            <h3 className="mt-6 text-lg font-bold text-white">{title}</h3>
+              {/* Stages */}
+              {hasStages && (
+                <div>
+                  {stages.map((s, i) => {
+                    const isActive = ACTIVE.has(s.status);
+                    const isDone = s.status === "done";
+                    const isError = s.status === "error";
+                    const isWaiting = s.status === "waiting";
 
-            {/* progress bar */}
-            <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/10">
-              {pct != null ? (
-                <motion.div className="h-full rounded-full bg-gradient-to-r from-brand-400 to-fuchsia-400"
-                  initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ ease: "easeOut", duration: 0.3 }} />
-              ) : (
-                <div className="h-full w-1/3 rounded-full bg-gradient-to-r from-brand-400 to-fuchsia-400 animate-[shimmer_1.2s_infinite]" />
-              )}
-            </div>
-
-            {/* Pipeline stages */}
-            {hasStages && (
-              <div className="mt-5 space-y-1.5 text-left">
-                {stages.map((s, i) => {
-                  const meta = STAGE_META[s.status] || STAGE_META.waiting;
-                  const Icon = meta.icon;
-                  const isActive = s.status === "processing" || s.status === "loading" || s.status === "optimizing" || s.status === "generating";
-                  return (
-                    <motion.div
-                      key={s.id || i}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.06 }}
-                      className={`flex items-center gap-2.5 rounded-xl px-3 py-2 transition-all ${isActive ? "bg-white/15 ring-1 ring-white/10" : "bg-white/5"}`}
-                    >
-                      <div className={`shrink-0 h-6 w-6 rounded-lg grid place-items-center ${isActive ? "bg-white/20" : s.status === "done" ? "bg-emerald-500/20" : s.status === "error" ? "bg-red-500/20" : "bg-white/10"}`}>
-                        {isActive ? (
-                          <Loader2 className={`h-3.5 w-3.5 animate-spin ${meta.color}`} />
-                        ) : (
-                          <Icon className={`h-3.5 w-3.5 ${meta.color}`} />
+                    return (
+                      <div key={s.id || i}>
+                        {/* Connector */}
+                        {i > 0 && (
+                          <div className="ml-[22px] w-[1px] h-1.5 transition-colors duration-300"
+                            style={{ background: isDone || isActive ? "rgba(16,185,129,0.2)" : "rgba(255,255,255,0.04)" }}
+                          />
                         )}
+
+                        {/* Stage row */}
+                        <div
+                          className="flex items-center gap-3 py-2.5 px-3 rounded-xl transition-all duration-300"
+                          style={{
+                            background: isActive ? "rgba(230,57,70,0.06)" : "transparent",
+                            border: isActive ? "1px solid rgba(230,57,70,0.12)" : "1px solid transparent",
+                            animation: `overlaySlideIn 0.25s ease-out ${i * 0.05}s both`,
+                          }}
+                        >
+                          {/* Dot */}
+                          <div className="relative flex items-center justify-center h-7 w-7 shrink-0">
+                            {isDone && (
+                              <div
+                                className="h-7 w-7 rounded-full flex items-center justify-center animate-[overlayScaleIn_0.25s_ease-out]"
+                                style={{ background: "rgba(16,185,129,0.15)", border: "1.5px solid rgba(16,185,129,0.4)" }}
+                              >
+                                <Check className="h-3.5 w-3.5 text-emerald-400" strokeWidth={3} />
+                              </div>
+                            )}
+                            {isError && (
+                              <div className="h-7 w-7 rounded-full flex items-center justify-center"
+                                style={{ background: "rgba(239,68,68,0.15)", border: "1.5px solid rgba(239,68,68,0.4)" }}>
+                                <X className="h-3.5 w-3.5 text-red-400" strokeWidth={3} />
+                              </div>
+                            )}
+                            {isActive && (
+                              <div className="relative h-7 w-7 rounded-full flex items-center justify-center"
+                                style={{ background: "rgba(230,57,70,0.1)", border: "1.5px solid rgba(230,57,70,0.3)" }}>
+                                <div className="absolute inset-0 rounded-full animate-ping"
+                                  style={{ border: "1.5px solid rgba(230,57,70,0.2)", animationDuration: "1.5s" }} />
+                                <div className="h-2 w-2 rounded-full bg-[#e63946] animate-pulse" />
+                              </div>
+                            )}
+                            {isWaiting && (
+                              <div className="h-7 w-7 rounded-full flex items-center justify-center"
+                                style={{ background: "rgba(255,255,255,0.02)", border: "1.5px solid rgba(255,255,255,0.06)" }}>
+                                <div className="h-1.5 w-1.5 rounded-full bg-white/15" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Label */}
+                          <span className={`text-[13px] font-medium flex-1 transition-colors duration-300 ${
+                            isActive ? "text-white" :
+                            isDone ? "text-emerald-400/70" :
+                            isError ? "text-red-400/70" :
+                            "text-white/20"
+                          }`}>
+                            {s.label}
+                          </span>
+
+                          {s.detail && (
+                            <span className="text-[11px] text-white/30 tabular-nums font-mono">{s.detail}</span>
+                          )}
+                          {isActive && (
+                            <ChevronRight className="h-3.5 w-3.5 text-[#e63946]/50 animate-[overlayBounceX_0.8s_ease-in-out_infinite]" />
+                          )}
+                        </div>
                       </div>
-                      <span className={`text-xs font-medium flex-1 ${isActive ? "text-white" : s.status === "done" ? "text-emerald-400" : s.status === "error" ? "text-red-400" : "text-white/40"}`}>
-                        {s.label || meta.label}
-                      </span>
-                      {s.detail && (
-                        <span className="text-[10px] text-white/30 tabular-nums">{s.detail}</span>
-                      )}
-                      {s.status === "done" && (
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                      )}
-                    </motion.div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
 
-            {/* rotating message (only when no stages) */}
-            {!hasStages && (
-              <div className="mt-4 h-5 overflow-hidden">
-                <AnimatePresence mode="wait">
-                  <motion.p
-                    key={msgIndex}
-                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.3 }}
-                    className="text-sm text-white/50"
-                  >
-                    {pct != null && pct < 100 ? messages[msgIndex] : "Finalizando…"}
-                  </motion.p>
-                </AnimatePresence>
-              </div>
-            )}
+              <p className="mt-4 text-[10px] text-white/12 text-center tracking-wider uppercase">
+                processando no seu navegador
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
 
-            <p className="mt-4 text-[11px] text-white/30">Tudo acontece no seu navegador — pode levar alguns segundos.</p>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+      {/* CSS animations */}
+      <style>{`
+        @property --border-angle {
+          syntax: "<angle>";
+          initial-value: 0deg;
+          inherits: false;
+        }
+        @keyframes overlayBorderSpin {
+          to { --border-angle: 360deg; }
+        }
+        @keyframes overlayScaleIn {
+          from { transform: scale(0); }
+          to { transform: scale(1); }
+        }
+        @keyframes overlayFadeUp {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes overlaySlideIn {
+          from { opacity: 0; transform: translateX(-8px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes overlayRipple {
+          from { transform: scale(1); opacity: 0.5; }
+          to { transform: scale(1.6); opacity: 0; }
+        }
+        @keyframes overlayShimmer {
+          from { background-position: 0% 0%; }
+          to { background-position: 200% 0%; }
+        }
+        @keyframes overlayBounceX {
+          0%, 100% { transform: translateX(0); }
+          50% { transform: translateX(3px); }
+        }
+      `}</style>
+    </div>
   );
 }
 

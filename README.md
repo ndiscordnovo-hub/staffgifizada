@@ -1,27 +1,27 @@
-# Nebula Studio 🌌
+# Gif Edition
 
-Editor **gratuito e premium** de imagens, GIFs e vídeos para criadores do Discord.
-Inspirado no EZGIF, com identidade própria — e **todo o processamento acontece no seu navegador** (nada é enviado a servidores).
+Editor **gratuito** de imagens, GIFs e vídeos para criadores do Discord.
+Todo o processamento acontece **no seu navegador** — nada é enviado a servidores.
 
-## ✨ Recursos
+## Recursos
 
-- **Editor de imagens** — girar, espelhar, cortar (com overlay interativo), redimensionar, brilho, contraste, saturação, nitidez, desfoque, fundo (branco/preto/transparente/desfocado), conversão de formato e compressão — tudo com pré-visualização em tempo real.
-- **Editor de GIF** — vídeo ⇄ GIF, FPS, velocidade, escala, cores/qualidade, inverter, loop.
-- **Editor de vídeo** — cortar, redimensionar, girar, comprimir (CRF), FPS, extrair/remover áudio, converter para MP4/WEBM/GIF.
-- **Otimização Inteligente** — modos de qualidade e alvos prontos para os limites do Discord (8/10/25 MB e Nitro), com busca binária de qualidade.
-- **Conversor universal** — PNG · JPG · WEBP · GIF · MP4 · WEBM · MP3.
-- **Processamento em lote** — dezenas de imagens de uma vez, download individual ou **ZIP**.
-- **Histórico & favoritos** — salvos localmente.
-- **Presets** — Avatar 512×512, Banner Discord 600×240, Instagram, YouTube, TikTok, etc.
+- **Editor de imagens** — girar, espelhar, cortar, redimensionar, brilho, contraste, saturação, nitidez, desfoque, fundo, conversão e compressão.
+- **Editor de GIF** — vídeo para GIF, FPS, velocidade, escala, cores/qualidade, inverter, loop.
+- **Editor de vídeo** — cortar, redimensionar, girar, comprimir, FPS, extrair/remover áudio, converter.
+- **Otimização Inteligente** — modos de qualidade e alvos prontos para os limites do Discord (8/10/25 MB e Nitro).
+- **Conversor universal** — PNG, JPG, WEBP, GIF, MP4, WEBM, MP3.
+- **Processamento em lote** — dezenas de imagens de uma vez, download individual ou ZIP.
+- **Projetos** — salve e retome edições com todos os ajustes preservados.
+- **Parceria** — programa de parceria para criadores e empresas.
 
-## 🧱 Stack
+## Stack
 
 - **Next.js 14** (App Router) + **React 18**
-- **Tailwind CSS** + **Framer Motion** (tema escuro, glassmorphism, animações)
-- **Canvas API** para imagens · **FFmpeg.wasm** para GIF/vídeo (carregado sob demanda)
+- **Tailwind CSS** + **Framer Motion**
+- **Canvas API** para imagens · **FFmpeg.wasm** para GIF/vídeo
 - **lucide-react** para ícones
 
-## 🚀 Rodando localmente
+## Rodando localmente
 
 ```bash
 npm install
@@ -30,11 +30,10 @@ npm run dev
 
 Abra http://localhost:3000
 
-## ☁️ Publicando (grátis)
+## Deploy (Square Cloud)
 
-Como é 100% client-side, hospeda em qualquer lugar:
+1. `npm run build` (gera `.next/standalone`)
+2. Monte o ZIP com: `.next/standalone/`, `.next/static/`, `public/`, `main_file.js`, `squarecloud.app`, `package.json`
+3. Faça upload no painel da Square Cloud
 
-- **Vercel** — importe o repositório em vercel.com → deploy automático (zero config).
-- **Netlify** — build `npm run build`, publish `.next` (com o plugin Next.js) ou use o preset da Netlify.
-
-> A primeira operação de GIF/vídeo baixa o núcleo do FFmpeg (~30 MB) uma única vez via CDN.
+> A primeira operação de GIF/vídeo baixa o FFmpeg (~30 MB) uma única vez via CDN.

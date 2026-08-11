@@ -65,10 +65,9 @@ export async function POST(request) {
   const h = request.headers;
   const ip = (h.get("x-forwarded-for") || "").split(",")[0].trim() || "desconhecido";
 
-  // Geo + client info (Vercel injects these headers; absent elsewhere).
-  const country = h.get("x-vercel-ip-country") || null;
-  const region = h.get("x-vercel-ip-country-region") || null;
-  const city = h.get("x-vercel-ip-city") ? decodeURIComponent(h.get("x-vercel-ip-city")) : null;
+  const country = h.get("cf-ipcountry") || h.get("x-country") || null;
+  const region = h.get("x-region") || null;
+  const city = h.get("x-city") ? decodeURIComponent(h.get("x-city")) : null;
   const geo = [city, region, country].filter(Boolean).join(", ") || "—";
 
   // Rate limit / abuse detection.

@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "0.0.0.0";
 const ROOT = path.join(__dirname, "out");
 
-// Strong security headers, kept in sync with vercel.json.
+// Strong security headers.
 const CSP = [
   "default-src 'self'",
   "base-uri 'self'",
