@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Gauge, Download, Sparkles, Zap, Feather, Rocket, Save } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
-import ProcessingOverlay from "@/components/ProcessingOverlay";
 import { Panel, ProgressBar, Stat, EmptyState } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
 import { loadImage, compressToTarget, toBlob } from "@/lib/imageProcessor";
@@ -27,8 +26,6 @@ export default function OptimizePage() {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(null);
   const [result, setResult] = useState(null);
-  const [stages, setStages] = useState([]);
-  const [overlayResult, setOverlayResult] = useState(null);
 
   const isImage = media?.type?.startsWith("image/") && media?.type !== "image/gif";
 
@@ -46,25 +43,12 @@ export default function OptimizePage() {
     return Math.round(media.size * (m.quality * 0.7)); // rough estimate
   };
 
-  const updateStage = (id, status, detail) =>
-    setStages((s) => s.map((st) => (st.id === id ? { ...st, status, ...(detail !== undefined ? { detail } : {}) } : st)));
-
   const run = async () => {
     if (!media) return;
-    const pipeStages = [
-      { id: "load", label: "Analisando arquivo", status: "waiting" },
-      { id: "process", label: "Otimizando qualidade", status: "waiting" },
-      { id: "optimize", label: "Comprimindo dados", status: "waiting" },
-      { id: "generate", label: "Gerando resultado", status: "waiting" },
-    ];
-    setStages(pipeStages);
     setBusy(true); setProgress(null); setResult(null);
-    updateStage("load", "loading");
     try {
       let blob, outName;
       if (isImage && img) {
-        updateStage("load", "done");
-        updateStage("process", "processing");
         const budget = target ? DISCORD_LIMITS.find((d) => d.id === target).bytes : null;
         if (budget) {
           const r = await compressToTarget(img, { format: "webp" }, canvasRef.current, budget);
@@ -74,8 +58,6 @@ export default function OptimizePage() {
           blob = await toBlob(img, { format: "webp", quality: q }, canvasRef.current);
           outName = `${baseName(media.name)}-otimizado.webp`;
         }
-        updateStage("process", "done");
-        updateStage("optimize", "done");
       } else {
         setProgress(0);
         const inExt = media.name.split(".").pop() || "mp4";
@@ -85,40 +67,21 @@ export default function OptimizePage() {
         const args = isGif
           ? ["-i", `in.${inExt}`, "-vf", "fps=12,scale=trunc(iw*0.8/2)*2:-2,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse", "out.gif"]
           : ["-i", `in.${inExt}`, "-c:v", "libx264", "-crf", `${crf}`, "-preset", "veryfast", "-pix_fmt", "yuv420p", "-movflags", "faststart", "-c:a", "aac", "out.mp4"];
-        updateStage("load", "done");
-        updateStage("process", "processing");
         blob = await runFFmpeg({
           file: media.file, inName: `in.${inExt}`, outName: isGif ? "out.gif" : "out.mp4", args, outType: isGif ? "image/gif" : "video/mp4",
           onProgress: (p) => {
             setProgress(p);
-            if (p > 0 && p < 80) updateStage("process", "processing", `${p}%`);
-            if (p >= 80) { updateStage("process", "done"); updateStage("optimize", "optimizing"); }
           },
         });
-        updateStage("optimize", "done");
       }
-      updateStage("generate", "generating");
       const url = URL.createObjectURL(blob);
       setResult({ url, size: blob.size, name: outName, blob });
       addHistory({ id: outName + Date.now(), name: outName, kind: "optimize", size: blob.size });
-      updateStage("generate", "done");
       setBusy(false); setProgress(null);
-      const redu = Math.max(0, Math.round((1 - blob.size / media.size) * 100));
-      setOverlayResult({
-        title: "Otimização concluída!",
-        items: [
-          { label: "Antes", value: formatBytes(media.size) },
-          { label: "Depois", value: formatBytes(blob.size), accent: "text-emerald-400" },
-          { label: "Redução", value: `${redu}%`, accent: "text-emerald-400" },
-          { label: "Qualidade", value: target ? "Auto (Discord)" : mode === "max" ? "Máxima" : mode === "balanced" ? "Equilibrado" : "Ultra" },
-        ],
-      });
     } catch (e) {
       console.error(e);
-      setStages((s) => s.map((st) => (st.status !== "done" ? { ...st, status: "error" } : st)));
       toast("Falha na otimização.", "error");
       setBusy(false); setProgress(null);
-      setTimeout(() => setStages([]), 2000);
     }
   };
 
@@ -136,7 +99,6 @@ export default function OptimizePage() {
 
   return (
     <div className="space-y-6">
-      <ProcessingOverlay open={busy || overlayResult != null} progress={progress} title="Otimizando…" stages={stages} result={overlayResult} onClose={() => { setOverlayResult(null); setStages([]); }} />
       <Header onNew={() => { setMedia(null); setResult(null); }} />
       <canvas ref={canvasRef} className="hidden" />
 

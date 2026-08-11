@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Laugh, Download, Save, ImageIcon } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
-import ProcessingOverlay from "@/components/ProcessingOverlay";
 import { Panel, Slider, EmptyState, Stat } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
 import { loadImage } from "@/lib/imageProcessor";
@@ -29,12 +28,6 @@ export default function MemePage() {
   const [top, setTop] = useState("");
   const [bottom, setBottom] = useState("");
   const [scale, setScale] = useState(10); // % of width
-  const [overlayOpen, setOverlayOpen] = useState(false);
-  const [overlayStages, setOverlayStages] = useState([]);
-  const [overlayResult, setOverlayResult] = useState(null);
-
-  const closeOverlay = () => { setOverlayOpen(false); setOverlayStages([]); setOverlayResult(null); };
-  const up = (id, status) => setOverlayStages((s) => s.map((st) => (st.id === id ? { ...st, status } : st)));
 
   const onFiles = async (files) => {
     const f = files.find((x) => x.type.startsWith("image/"));
@@ -57,58 +50,24 @@ export default function MemePage() {
   const getBlob = () => new Promise((res) => canvasRef.current.toBlob(res, "image/png"));
 
   const download = async () => {
-    const pipe = [
-      { id: "render", label: "Renderizando meme", status: "waiting" },
-      { id: "generate", label: "Gerando arquivo", status: "waiting" },
-    ];
-    setOverlayStages(pipe); setOverlayResult(null); setOverlayOpen(true);
     try {
-      up("render", "processing");
       const blob = await getBlob();
-      up("render", "done");
-      up("generate", "generating");
       downloadBlob(blob, "meme-gifedition.png");
-      up("generate", "done");
-      setOverlayResult({
-        title: "Meme baixado!",
-        items: [
-          { label: "Formato", value: "PNG" },
-          { label: "Resolução", value: `${img.naturalWidth}×${img.naturalHeight}` },
-        ],
-      });
+      toast("Meme baixado!", "success");
     } catch (e) {
       console.error(e);
-      setOverlayStages((s) => s.map((st) => (st.status !== "done" ? { ...st, status: "error" } : st)));
       toast("Falha ao gerar meme.", "error");
-      setTimeout(closeOverlay, 2000);
     }
   };
 
   const save = async () => {
-    const pipe = [
-      { id: "render", label: "Renderizando meme", status: "waiting" },
-      { id: "generate", label: "Salvando na biblioteca", status: "waiting" },
-    ];
-    setOverlayStages(pipe); setOverlayResult(null); setOverlayOpen(true);
     try {
-      up("render", "processing");
       const b = await getBlob();
-      up("render", "done");
-      up("generate", "generating");
       await saveMedia({ name: "meme.png", kind: "image", type: "image/png", blob: b, w: img.naturalWidth, h: img.naturalHeight });
-      up("generate", "done");
-      setOverlayResult({
-        title: "Meme salvo!",
-        items: [
-          { label: "Formato", value: "PNG" },
-          { label: "Ação", value: "Salvo na biblioteca", accent: "text-emerald-400" },
-        ],
-      });
+      toast("Meme salvo!", "success");
     } catch (e) {
       console.error(e);
-      setOverlayStages((s) => s.map((st) => (st.status !== "done" ? { ...st, status: "error" } : st)));
       toast("Falha ao salvar.", "error");
-      setTimeout(closeOverlay, 2000);
     }
   };
 
@@ -124,7 +83,6 @@ export default function MemePage() {
 
   return (
     <div className="space-y-6">
-      <ProcessingOverlay open={overlayOpen} title="Processando meme…" stages={overlayStages} result={overlayResult} onClose={closeOverlay} />
       <Header onNew={() => { setImg(null); setTop(""); setBottom(""); }} />
       <div className="grid lg:grid-cols-[1fr_340px] gap-5 items-start">
         <div className="card p-4 grid place-items-center">

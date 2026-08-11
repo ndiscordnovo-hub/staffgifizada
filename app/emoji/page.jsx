@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Smile, Download, Save, Sparkles } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
-import ProcessingOverlay from "@/components/ProcessingOverlay";
 import { Panel, Segmented, ProgressBar, Stat, EmptyState } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
 import { loadImage } from "@/lib/imageProcessor";
@@ -36,8 +35,6 @@ export default function EmojiPage() {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(null);
   const [result, setResult] = useState(null);
-  const [stages, setStages] = useState([]);
-  const [overlayResult, setOverlayResult] = useState(null);
 
   const isGif = media?.type === "image/gif";
   const cur = PRESETS.find((p) => p.id === preset);
@@ -55,68 +52,34 @@ export default function EmojiPage() {
 
   useEffect(() => () => { if (result?.url) URL.revokeObjectURL(result.url); }, [result]);
 
-  const updateStage = (id, status, detail) =>
-    setStages((s) => s.map((st) => (st.id === id ? { ...st, status, ...(detail !== undefined ? { detail } : {}) } : st)));
-
   const generate = async () => {
     if (!media) return;
-    const pipeStages = [
-      { id: "load", label: "Carregando arquivo", status: "waiting" },
-      { id: "process", label: "Redimensionando", status: "waiting" },
-      { id: "optimize", label: "Otimizando saída", status: "waiting" },
-      { id: "generate", label: `Gerando ${cur.label.toLowerCase()}`, status: "waiting" },
-    ];
-    setStages(pipeStages);
     setBusy(true); setResult(null); setProgress(null);
-    updateStage("load", "loading");
     try {
       let blob, name;
       if (isGif) {
-        setProgress(0);
         const inExt = media.name.split(".").pop() || "gif";
-        updateStage("load", "done");
-        updateStage("process", "processing");
         blob = await runFFmpeg({
           file: media.file, inName: `in.${inExt}`, outName: "out.gif", outType: "image/gif",
           args: ["-i", `in.${inExt}`, "-vf", `fps=15,scale=${cur.size}:${cur.size}:force_original_aspect_ratio=decrease,split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse`, "-loop", "0", "out.gif"],
           onProgress: (p) => {
             setProgress(p);
-            if (p > 0 && p < 80) updateStage("process", "processing", `${p}%`);
-            if (p >= 80) { updateStage("process", "done"); updateStage("optimize", "optimizing"); }
           },
         });
-        updateStage("optimize", "done");
         name = `${baseName(media.name)}-${preset}.gif`;
       } else if (img) {
-        updateStage("load", "done");
-        updateStage("process", "processing");
         const canvas = toSquare(img, cur.size, fit);
         blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
-        updateStage("process", "done");
-        updateStage("optimize", "done");
         name = `${baseName(media.name)}-${preset}.png`;
       }
-      updateStage("generate", "generating");
       const url = URL.createObjectURL(blob);
       setResult({ url, size: blob.size, name, blob, gif: isGif });
       await saveMedia({ name, kind: isGif ? "gif" : "image", type: blob.type, blob, w: cur.size, h: cur.size });
-      updateStage("generate", "done");
       setBusy(false); setProgress(null);
-      setOverlayResult({
-        title: `${cur.label} criado!`,
-        items: [
-          { label: "Tipo", value: cur.label },
-          { label: "Tamanho", value: `${cur.size}×${cur.size}px` },
-          { label: "Peso", value: formatBytes(blob.size), accent: blob.size <= cur.limit ? "text-emerald-400" : "text-amber-400" },
-          { label: "Cabe no Discord?", value: blob.size <= cur.limit ? "Sim" : "Acima do limite", accent: blob.size <= cur.limit ? "text-emerald-400" : "text-amber-400" },
-        ],
-      });
     } catch (e) {
       console.error(e);
-      setStages((s) => s.map((st) => (st.status !== "done" ? { ...st, status: "error" } : st)));
       toast("Falha ao gerar.", "error");
       setBusy(false); setProgress(null);
-      setTimeout(() => setStages([]), 2000);
     }
   };
 
@@ -132,7 +95,6 @@ export default function EmojiPage() {
 
   return (
     <div className="space-y-6">
-      <ProcessingOverlay open={busy || overlayResult != null} progress={progress} title={`Gerando ${cur.label}…`} stages={stages} result={overlayResult} onClose={() => { setOverlayResult(null); setStages([]); }} />
       <Header onNew={() => { setMedia(null); setResult(null); }} />
       <div className="grid lg:grid-cols-[1fr_340px] gap-5 items-start">
         <div className="card p-4 grid place-items-center min-h-[260px]">

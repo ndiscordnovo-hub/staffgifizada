@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import { Film, Download, Play, Gauge, Repeat, RotateCcw, Sparkles, Package, Loader2, X as XIcon, CheckCircle2, Image as ImageIcon, Crop, Save, FlipHorizontal2, FlipVertical2, RotateCw, Scissors, Maximize2, FolderOpen } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import ModeChooser from "@/components/ModeChooser";
-import ProcessingOverlay from "@/components/ProcessingOverlay";
 import CropOverlay from "@/components/CropOverlay";
 import { Panel, Slider, Segmented, ProgressBar, Stat, EmptyState } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
@@ -38,8 +37,6 @@ export default function GifPage() {
   const [batchOuts, setBatchOuts] = useState({});
   const [batchBusy, setBatchBusy] = useState(false);
   const [batchReport, setBatchReport] = useState(null);
-  const [stages, setStages] = useState([]);
-  const [overlayResult, setOverlayResult] = useState(null);
   const [savingProject, setSavingProject] = useState(false);
   const patch = (p) => setOpts((o) => ({ ...o, ...p }));
 
@@ -288,20 +285,9 @@ export default function GifPage() {
     }
   };
 
-  const updateStage = (id, status, detail) =>
-    setStages((s) => s.map((st) => (st.id === id ? { ...st, status, ...(detail !== undefined ? { detail } : {}) } : st)));
-
   const run = async (mode) => {
     if (!media) return;
-    const pipeStages = [
-      { id: "load", label: "Carregando FFmpeg", status: "waiting" },
-      { id: "process", label: "Processando mídia", status: "waiting" },
-      { id: "optimize", label: "Otimizando saída", status: "waiting" },
-      { id: "generate", label: "Gerando arquivo", status: "waiting" },
-    ];
-    setStages(pipeStages);
     setBusy(true); setProgress(0); setResult(null);
-    updateStage("load", "loading");
     try {
       const inExt = media.name.split(".").pop() || (isVideo ? "mp4" : "gif");
       const inName = `in.${inExt}`;
@@ -331,41 +317,22 @@ export default function GifPage() {
         ];
       }
 
-      updateStage("load", "done");
-      updateStage("process", "processing");
-
       const blob = await runFFmpeg({
         file: media.file, inName, outName, args, outType,
         onProgress: (p) => {
           setProgress(p);
-          if (p > 0 && p < 80) updateStage("process", "processing", `${p}%`);
-          if (p >= 80) { updateStage("process", "done"); updateStage("optimize", "optimizing"); }
         },
       });
 
-      updateStage("optimize", "done");
-      updateStage("generate", "generating");
       const url = URL.createObjectURL(blob);
       const name = `${baseName(media.name)}-nebula.${kind === "video" ? "mp4" : "gif"}`;
       setResult({ url, size: blob.size, name, blob });
       addHistory({ id: name + Date.now(), name, kind, size: blob.size, thumb: null });
-      updateStage("generate", "done");
       setBusy(false); setProgress(null);
-      setOverlayResult({
-        title: kind === "video" ? "Vídeo exportado!" : "GIF gerado!",
-        items: [
-          { label: "Formato", value: kind === "video" ? "MP4" : "GIF" },
-          { label: "Tamanho", value: formatBytes(blob.size), accent: blob.size < media.size ? "text-emerald-400" : "text-white" },
-          { label: "Original", value: formatBytes(media.size) },
-          { label: "Redução", value: `${Math.max(0, Math.round((1 - blob.size / media.size) * 100))}%`, accent: "text-emerald-400" },
-        ],
-      });
     } catch (e) {
       console.error(e);
-      setStages((s) => s.map((st) => (st.status !== "done" ? { ...st, status: "error" } : st)));
       toast("Falha ao processar. Tente um arquivo menor.", "error");
       setBusy(false); setProgress(null);
-      setTimeout(() => setStages([]), 2000);
     }
   };
 
@@ -386,7 +353,6 @@ export default function GifPage() {
   return (
     <div className="space-y-6">
       <Header onNew={exitBatch} batchCount={batch.length} />
-      <ProcessingOverlay open={busy || batchBusy || overlayResult != null} progress={busy ? progress : null} title={batchBusy ? "Aplicando no lote…" : "Processando…"} stages={stages} result={overlayResult} onClose={() => { setOverlayResult(null); setStages([]); }} />
       <div className="grid lg:grid-cols-[1fr_360px] gap-5 items-start">
         <div className="space-y-4">
           {cropping && frameImg ? (

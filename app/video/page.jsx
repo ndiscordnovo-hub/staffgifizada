@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { Video, Download, Scissors, Volume2, VolumeX, Film, Sparkles, Gauge, RotateCw, Crop, X as XIcon, Save, FolderOpen, Loader2 } from "lucide-react";
 import Dropzone from "@/components/Dropzone";
 import ModeChooser from "@/components/ModeChooser";
-import ProcessingOverlay from "@/components/ProcessingOverlay";
 import CropOverlay from "@/components/CropOverlay";
 import { Panel, Slider, Segmented, ProgressBar, Stat, EmptyState } from "@/components/ui";
 import { useMedia } from "@/components/MediaContext";
@@ -26,11 +25,8 @@ export default function VideoPage() {
   const [frameImg, setFrameImg] = useState(null);
   const [cropping, setCropping] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [busyTitle, setBusyTitle] = useState("Processando…");
   const [progress, setProgress] = useState(null);
   const [result, setResult] = useState(null);
-  const [stages, setStages] = useState([]);
-  const [overlayResult, setOverlayResult] = useState(null);
   const [savingProject, setSavingProject] = useState(false);
   const patch = (p) => setOpts((o) => ({ ...o, ...p }));
 
@@ -86,9 +82,6 @@ export default function VideoPage() {
     }
   };
 
-  const updateStage = (id, status, detail) =>
-    setStages((s) => s.map((st) => (st.id === id ? { ...st, status, ...(detail !== undefined ? { detail } : {}) } : st)));
-
   const onLoaded = () => {
     const d = videoRef.current?.duration || 0;
     setDur(d);
@@ -120,16 +113,7 @@ export default function VideoPage() {
 
   const run = async (mode) => {
     if (!media) return;
-    const pipeStages = [
-      { id: "load", label: "Carregando FFmpeg", status: "waiting" },
-      { id: "process", label: mode === "gif" ? "Convertendo em GIF" : mode === "audio" ? "Extraindo áudio" : "Processando vídeo", status: "waiting" },
-      { id: "optimize", label: "Otimizando saída", status: "waiting" },
-      { id: "generate", label: "Gerando arquivo", status: "waiting" },
-    ];
-    setStages(pipeStages);
-    setBusyTitle(mode === "gif" ? "Convertendo em GIF…" : mode === "audio" ? "Extraindo áudio…" : "Exportando vídeo…");
     setBusy(true); setProgress(0); setResult(null);
-    updateStage("load", "loading");
     try {
       const inExt = media.name.split(".").pop() || "mp4";
       const inName = `in.${inExt}`;
@@ -162,43 +146,23 @@ export default function VideoPage() {
         args.push(outName);
       }
 
-      updateStage("load", "done");
-      updateStage("process", "processing");
-
       const blob = await runFFmpeg({
         file: media.file, inName, outName, args, outType,
         onProgress: (p) => {
           setProgress(p);
-          if (p > 0 && p < 80) updateStage("process", "processing", `${p}%`);
-          if (p >= 80) { updateStage("process", "done"); updateStage("optimize", "optimizing"); }
         },
       });
 
-      updateStage("optimize", "done");
-      updateStage("generate", "generating");
       const url = URL.createObjectURL(blob);
       const ext = outName.split(".").pop();
       const name = `${baseName(media.name)}-nebula.${ext}`;
       setResult({ url, size: blob.size, name, blob, kind });
       addHistory({ id: name + Date.now(), name, kind, size: blob.size });
-      updateStage("generate", "done");
       setBusy(false); setProgress(null);
-      const kindLabel = kind === "gif" ? "GIF" : kind === "audio" ? "MP3" : ext.toUpperCase();
-      setOverlayResult({
-        title: kind === "audio" ? "Áudio extraído!" : kind === "gif" ? "GIF gerado!" : "Vídeo exportado!",
-        items: [
-          { label: "Formato", value: kindLabel },
-          { label: "Tamanho", value: formatBytes(blob.size), accent: blob.size < media.size ? "text-emerald-400" : "text-white" },
-          { label: "Original", value: formatBytes(media.size) },
-          { label: "Redução", value: `${Math.max(0, Math.round((1 - blob.size / media.size) * 100))}%`, accent: "text-emerald-400" },
-        ],
-      });
     } catch (e) {
       console.error(e);
-      setStages((s) => s.map((st) => (st.status !== "done" ? { ...st, status: "error" } : st)));
       toast("Falha ao processar o vídeo.", "error");
       setBusy(false); setProgress(null);
-      setTimeout(() => setStages([]), 2000);
     }
   };
 
@@ -219,7 +183,6 @@ export default function VideoPage() {
   return (
     <div className="space-y-6">
       <Header onNew={() => { setMedia(null); setResult(null); }} />
-      <ProcessingOverlay open={busy || overlayResult != null} progress={progress} title={busyTitle} stages={stages} result={overlayResult} onClose={() => { setOverlayResult(null); setStages([]); }} />
       <div className="grid lg:grid-cols-[1fr_360px] gap-5 items-start">
         <div className="space-y-4">
           {cropping && frameImg ? (

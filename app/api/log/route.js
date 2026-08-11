@@ -1,21 +1,15 @@
-// Server-side Discord webhook logging endpoint.
-// The webhook URLs live ONLY in server env vars — never shipped to the browser.
-// The client POSTs lightweight events here; this function adds geo/IP, applies a
-// best-effort rate limit, builds a Discord embed and forwards it to the right
-// webhook (a different one per category, if configured).
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// category -> { env var, embed color, default title }
 const CATEGORIES = {
-  access:     { env: "WEBHOOK_ACCESS",     color: 0x5865f2, name: "Acesso" },
-  upload:     { env: "WEBHOOK_UPLOAD",     color: 0x3498db, name: "Upload" },
-  process:    { env: "WEBHOOK_PROCESS",    color: 0x2ecc71, name: "Processamento" },
-  error:      { env: "WEBHOOK_ERROR",      color: 0xe74c3c, name: "Erro" },
-  security:   { env: "WEBHOOK_SECURITY",   color: 0xe67e22, name: "Segurança" },
-  admin:      { env: "WEBHOOK_ADMIN",      color: 0x9b59b6, name: "Admin" },
-  suggestion: { env: "WEBHOOK_SUGGESTION", color: 0xf1c40f, name: "Sugestão" },
-  update:     { env: "WEBHOOK_UPDATE",     color: 0x1abc9c, name: "Atualização" },
+  access:     { env: "WEBHOOK_ACCESS",     color: 0x5865f2, emoji: "👤", name: "Acesso" },
+  upload:     { env: "WEBHOOK_UPLOAD",     color: 0x3498db, emoji: "📦", name: "Upload" },
+  process:    { env: "WEBHOOK_PROCESS",    color: 0x2ecc71, emoji: "⚙️", name: "Processamento" },
+  error:      { env: "WEBHOOK_ERROR",      color: 0xe74c3c, emoji: "🚨", name: "Erro" },
+  security:   { env: "WEBHOOK_SECURITY",   color: 0xe67e22, emoji: "🛡️", name: "Segurança" },
+  admin:      { env: "WEBHOOK_ADMIN",      color: 0x9b59b6, emoji: "👑", name: "Admin" },
+  suggestion: { env: "WEBHOOK_SUGGESTION", color: 0xf1c40f, emoji: "💡", name: "Sugestão" },
+  update:     { env: "WEBHOOK_UPDATE",     color: 0x1abc9c, emoji: "🔄", name: "Atualização" },
 };
 
 function webhookFor(category) {
@@ -23,12 +17,10 @@ function webhookFor(category) {
   return (c && process.env[c.env]) || process.env.WEBHOOK_DEFAULT || null;
 }
 
-// Best-effort in-memory rate limit (per warm instance). Robust limiting across
-// all instances would need a shared store (KV/Redis) — a future upgrade.
 const HITS = new Map();
 const WINDOW_MS = 60_000;
 const MAX_PER_WINDOW = 40;
-const flagged = new Map(); // ip -> last time we logged a security alert
+const flagged = new Map();
 
 function rateLimited(ip) {
   const now = Date.now();
@@ -42,8 +34,26 @@ async function sendToDiscord(url, embed) {
   return fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: "Gif Edition • Logs", embeds: [embed] }),
+    body: JSON.stringify({
+      username: "Gif Edition",
+      avatar_url: "https://gifediton.com.br/favicon.ico",
+      embeds: [embed],
+    }),
   });
+}
+
+function deviceEmoji(device) {
+  if (device === "Mobile") return "📱";
+  if (device === "Tablet") return "📲";
+  return "🖥️";
+}
+
+function browserEmoji(browser) {
+  if (browser === "Chrome") return "<:chrome:🌐>";
+  if (browser === "Firefox") return "🦊";
+  if (browser === "Safari") return "🧭";
+  if (browser === "Edge") return "🌊";
+  return "🌐";
 }
 
 export async function POST(request) {
@@ -68,21 +78,20 @@ export async function POST(request) {
   const country = h.get("cf-ipcountry") || h.get("x-country") || null;
   const region = h.get("x-region") || null;
   const city = h.get("x-city") ? decodeURIComponent(h.get("x-city")) : null;
-  const geo = [city, region, country].filter(Boolean).join(", ") || "—";
+  const geo = [city, region, country].filter(Boolean).join(", ") || null;
 
-  // Rate limit / abuse detection.
   if (rateLimited(ip)) {
     const secUrl = process.env.WEBHOOK_SECURITY || process.env.WEBHOOK_DEFAULT;
     const last = flagged.get(ip) || 0;
     if (secUrl && Date.now() - last > WINDOW_MS) {
       flagged.set(ip, Date.now());
       sendToDiscord(secUrl, {
-        title: "🚨 Segurança — muitas requisições",
-        description: `Rate limit atingido (> ${MAX_PER_WINDOW}/min).`,
+        title: "🚨 Rate Limit Atingido",
+        description: `Mais de ${MAX_PER_WINDOW} requisições em 1 minuto.`,
         color: 0xe67e22,
         fields: [
-          { name: "Origem", value: geo, inline: true },
-          { name: "IP", value: "||" + ip + "||", inline: true },
+          { name: "🌍 Origem", value: geo || "Desconhecido", inline: true },
+          { name: "🔒 IP", value: "||" + ip + "||", inline: true },
         ],
         timestamp: new Date().toISOString(),
       }).catch(() => {});
@@ -93,7 +102,8 @@ export async function POST(request) {
   const url = webhookFor(category);
   if (!url) return Response.json({ ok: false, reason: "not_configured" }, { status: 200 });
 
-  // Build embed from client-provided fields + server-added context.
+  const ctx = body.context || {};
+
   const fields = Array.isArray(body.fields)
     ? body.fields.slice(0, 20).map((f) => ({
         name: String(f.name || "-").slice(0, 256),
@@ -101,14 +111,35 @@ export async function POST(request) {
         inline: !!f.inline,
       }))
     : [];
-  if (category === "access") fields.push({ name: "Origem", value: geo, inline: true });
+
+  if (geo) fields.push({ name: "🌍 Localização", value: geo, inline: true });
+  if (ctx.page && ctx.page !== "/") fields.push({ name: "📄 Página", value: ctx.page, inline: true });
+  if (ctx.session) fields.push({ name: "🔑 Sessão", value: `\`${ctx.session}\``, inline: true });
+
+  const deviceLine = [
+    ctx.device ? `${deviceEmoji(ctx.device)} ${ctx.device}` : null,
+    ctx.browser || null,
+    ctx.os || null,
+  ].filter(Boolean).join(" · ");
+
+  const extraLine = [
+    ctx.screen ? `🖥️ ${ctx.screen}` : null,
+    ctx.lang ? `🗣️ ${ctx.lang}` : null,
+  ].filter(Boolean).join(" · ");
+
+  let description = body.description ? String(body.description).slice(0, 3000) : "";
+  if (deviceLine) description += (description ? "\n" : "") + `> ${deviceLine}`;
+  if (extraLine) description += `\n> ${extraLine}`;
+  if (ctx.referrer) description += `\n> 🔗 Ref: ${ctx.referrer.slice(0, 100)}`;
 
   const embed = {
-    title: String(body.title || cat.name).slice(0, 256),
-    description: body.description ? String(body.description).slice(0, 4000) : undefined,
+    title: String(body.title || `${cat.emoji} ${cat.name}`).slice(0, 256),
+    description: description || undefined,
     color: cat.color,
     fields,
-    footer: { text: "Gif Edition" },
+    footer: {
+      text: `Gif Edition · ${cat.name} · IP: ${ip}`,
+    },
     timestamp: new Date().toISOString(),
   };
 
@@ -121,7 +152,6 @@ export async function POST(request) {
   return Response.json({ ok: true });
 }
 
-// Status for the admin panel: which categories have a webhook set (no URLs leaked).
 export async function GET() {
   const configured = {};
   for (const [key, c] of Object.entries(CATEGORIES)) {
