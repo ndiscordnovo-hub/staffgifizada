@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
-import { Check, X, ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, X, ChevronRight, Loader2 } from "lucide-react";
 
 const STAGE_META = {
   waiting:    { label: "Aguardando" },
@@ -44,8 +44,8 @@ export default function ProcessingOverlay({ open, progress, title = "Processando
       <div
         className="absolute inset-0 transition-all duration-300"
         style={{
-          background: "rgba(0,0,0,0.85)",
-          backdropFilter: show ? "blur(12px)" : "blur(0px)",
+          background: "rgba(0,0,0,0.95)",
+          backdropFilter: show ? "blur(20px)" : "blur(0px)",
         }}
         onClick={onClose}
       />
@@ -158,42 +158,10 @@ export default function ProcessingOverlay({ open, progress, title = "Processando
             /* ───── PROCESSING VIEW ───── */
             <div className="p-7">
               {/* Title */}
-              <h3 className="text-[15px] font-semibold text-white text-center mb-4">{title}</h3>
-
-              {/* Progress */}
-              <div className="mb-5">
-                {pct != null ? (
-                  <>
-                    <div className="flex justify-between mb-1.5">
-                      <span className="text-[11px] text-white/25">Progresso</span>
-                      <span className="text-[11px] text-white/50 tabular-nums font-mono">{Math.round(pct)}%</span>
-                    </div>
-                    <div className="h-[3px] w-full rounded-full overflow-hidden" style={{ background: "#1a1d2e" }}>
-                      <div
-                        className="h-full rounded-full transition-all duration-300 ease-out"
-                        style={{
-                          width: `${pct}%`,
-                          background: "linear-gradient(90deg, #e63946, #ff6b81)",
-                        }}
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <div className="h-[3px] w-full rounded-full overflow-hidden" style={{ background: "#1a1d2e" }}>
-                    <div
-                      className="h-full rounded-full animate-[overlayShimmer_1.5s_linear_infinite]"
-                      style={{
-                        width: "100%",
-                        background: "linear-gradient(90deg, #e63946, #ff6b81, #e63946)",
-                        backgroundSize: "200% 100%",
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
+              <h3 className="text-[15px] font-semibold text-white text-center mb-5">{title}</h3>
 
               {/* Stages */}
-              {hasStages && (
+              {hasStages ? (
                 <div>
                   {stages.map((s, i) => {
                     const isActive = ACTIVE.has(s.status);
@@ -203,14 +171,12 @@ export default function ProcessingOverlay({ open, progress, title = "Processando
 
                     return (
                       <div key={s.id || i}>
-                        {/* Connector */}
                         {i > 0 && (
-                          <div className="ml-[22px] w-[1px] h-1.5 transition-colors duration-300"
+                          <div className="ml-[22px] w-[1px] h-2 transition-colors duration-300"
                             style={{ background: isDone || isActive ? "rgba(16,185,129,0.2)" : "rgba(255,255,255,0.04)" }}
                           />
                         )}
 
-                        {/* Stage row */}
                         <div
                           className="flex items-center gap-3 py-2.5 px-3 rounded-xl transition-all duration-300"
                           style={{
@@ -219,7 +185,6 @@ export default function ProcessingOverlay({ open, progress, title = "Processando
                             animation: `overlaySlideIn 0.25s ease-out ${i * 0.05}s both`,
                           }}
                         >
-                          {/* Dot */}
                           <div className="relative flex items-center justify-center h-7 w-7 shrink-0">
                             {isDone && (
                               <div
@@ -251,7 +216,6 @@ export default function ProcessingOverlay({ open, progress, title = "Processando
                             )}
                           </div>
 
-                          {/* Label */}
                           <span className={`text-[13px] font-medium flex-1 transition-colors duration-300 ${
                             isActive ? "text-white" :
                             isDone ? "text-emerald-400/70" :
@@ -272,11 +236,22 @@ export default function ProcessingOverlay({ open, progress, title = "Processando
                     );
                   })}
                 </div>
+              ) : (
+                <div className="flex flex-col items-center gap-4">
+                  <Loader2 className="h-8 w-8 text-[#e63946] animate-spin" />
+                  {pct != null && (
+                    <div className="w-full">
+                      <div className="h-[3px] w-full rounded-full overflow-hidden" style={{ background: "#1a1d2e" }}>
+                        <div
+                          className="h-full rounded-full transition-all duration-300 ease-out"
+                          style={{ width: `${pct}%`, background: "linear-gradient(90deg, #e63946, #ff6b81)" }}
+                        />
+                      </div>
+                      <p className="text-[11px] text-white/40 text-center mt-2 tabular-nums font-mono">{Math.round(pct)}%</p>
+                    </div>
+                  )}
+                </div>
               )}
-
-              <p className="mt-4 text-[10px] text-white/12 text-center tracking-wider uppercase">
-                processando no seu navegador
-              </p>
             </div>
           )}
         </div>
