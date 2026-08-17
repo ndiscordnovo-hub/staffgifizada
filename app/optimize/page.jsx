@@ -64,8 +64,11 @@ export default function OptimizePage() {
         const crf = target ? 30 : mode === "ultra" ? 34 : mode === "balanced" ? 28 : 23;
         const isGif = media.type === "image/gif";
         outName = `${baseName(media.name)}-otimizado.${isGif ? "gif" : "mp4"}`;
+        const gifFps = mode === "ultra" ? 10 : mode === "balanced" ? 12 : 15;
+        const gifScale = mode === "ultra" ? "scale=trunc(iw*0.7/2)*2:-2," : mode === "balanced" ? "scale=trunc(iw*0.9/2)*2:-2," : "";
+        const gifColors = mode === "ultra" ? 64 : mode === "balanced" ? 128 : 256;
         const args = isGif
-          ? ["-i", `in.${inExt}`, "-vf", "fps=12,scale=trunc(iw*0.8/2)*2:-2,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse", "out.gif"]
+          ? ["-i", `in.${inExt}`, "-vf", `fps=${gifFps},${gifScale}split[s0][s1];[s0]palettegen=max_colors=${gifColors}[p];[s1][p]paletteuse`, "out.gif"]
           : ["-i", `in.${inExt}`, "-c:v", "libx264", "-crf", `${crf}`, "-preset", "veryfast", "-pix_fmt", "yuv420p", "-movflags", "faststart", "-c:a", "aac", "out.mp4"];
         blob = await runFFmpeg({
           file: media.file, inName: `in.${inExt}`, outName: isGif ? "out.gif" : "out.mp4", args, outType: isGif ? "image/gif" : "video/mp4",

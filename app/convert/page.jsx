@@ -54,10 +54,12 @@ export default function ConvertPage() {
           outName = "out.png"; outType = "image/png"; ext = "png"; args = ["-i", inName, "-frames:v", "1", outName];
         } else if (to === "webm") {
           outName = "out.webm"; outType = "video/webm"; ext = "webm";
-          args = ["-i", inName, "-c:v", "libvpx-vp9", "-crf", "30", "-b:v", "0", "-c:a", "libopus", outName];
+          const audioArgs = category === "gif" ? ["-an"] : ["-c:a", "libopus"];
+          args = ["-i", inName, "-c:v", "libvpx-vp9", "-crf", "30", "-b:v", "0", ...audioArgs, outName];
         } else {
           outName = "out.mp4"; outType = "video/mp4"; ext = "mp4";
-          args = ["-i", inName, "-c:v", "libx264", "-crf", "24", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-movflags", "faststart", "-c:a", "aac", outName];
+          const audioArgs = category === "gif" ? ["-an"] : ["-c:a", "aac"];
+          args = ["-i", inName, "-c:v", "libx264", "-crf", "24", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-movflags", "faststart", ...audioArgs, outName];
         }
         blob = await runFFmpeg({
           file: media.file, inName, outName, args, outType,
