@@ -78,7 +78,10 @@ export default function EmojiPage() {
       setBusy(false); setProgress(null);
     } catch (e) {
       console.error(e);
-      toast("Falha ao gerar.", "error");
+      const msg = e?.message?.includes("demorou") ? "Timeout: o GIF é muito grande. Tente um menor."
+        : e?.message?.includes("ocupado") ? "FFmpeg ocupado. Tente novamente."
+        : "Falha ao gerar. Tente outro arquivo.";
+      toast(msg, "error");
       setBusy(false); setProgress(null);
     }
   };

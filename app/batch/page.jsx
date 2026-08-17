@@ -109,23 +109,27 @@ export default function BatchPage() {
     return { blob, name: `${baseName(it.name)}.${outExt}` };
   };
 
-  const process = async () => {
-    if (items.length < MIN_FILES) return;
+  const process = async (onlyFailed = false) => {
+    const eligible = onlyFailed ? items.filter((i) => i.status === "error") : items;
+    if (eligible.length < (onlyFailed ? 1 : MIN_FILES)) return;
     cancelRef.current = false;
     setRunning(true); setReport(null);
     let ok = 0, err = 0;
     for (const it of items) {
       if (cancelRef.current) break;
       if (it.status === "done") { ok++; continue; }
+      if (onlyFailed && it.status !== "error") continue;
       if (it.kind === "other") { setItem(it.id, { status: "error", error: "Formato não suportado" }); err++; continue; }
-      setItem(it.id, { status: "processing", progress: 0 });
+      setItem(it.id, { status: "processing", progress: 0, error: null });
       try {
         const { blob, name } = await processOne(it); // eslint-disable-line no-await-in-loop
         setItem(it.id, { status: "done", progress: 100, out: { blob, size: blob.size, name } });
         ok++;
       } catch (e) {
         console.error(e);
-        setItem(it.id, { status: "error", error: e?.message?.slice(0, 60) || "Falha" });
+        const msg = e?.message?.includes("demorou") ? "Timeout — arquivo grande demais"
+          : e?.message?.slice(0, 60) || "Falha";
+        setItem(it.id, { status: "error", error: msg });
         err++;
       }
     }
@@ -267,7 +271,12 @@ export default function BatchPage() {
           {running ? (
             <button onClick={cancel} className="btn-ghost w-full !border-red-200 !text-red-500"><Ban className="h-4 w-4" /> Cancelar</button>
           ) : (
-            <button disabled={!canProcess} onClick={process} className="btn-primary w-full"><Layers className="h-4 w-4" /> Processar tudo</button>
+            <>
+              <button disabled={!canProcess} onClick={() => process(false)} className="btn-primary w-full"><Layers className="h-4 w-4" /> Processar tudo</button>
+              {items.some((i) => i.status === "error") && (
+                <button onClick={() => process(true)} className="btn-ghost w-full !border-amber-200 !text-amber-600"><AlertTriangle className="h-4 w-4" /> Repetir os que falharam</button>
+              )}
+            </>
           )}
           <button disabled={!items.some((i) => i.out)} onClick={downloadZip} className="btn-ghost w-full"><Package className="h-4 w-4" /> Baixar todos (ZIP)</button>
         </div>

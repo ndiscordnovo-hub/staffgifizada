@@ -65,8 +65,7 @@ export default function RootLayout({ children }) {
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted">
                   <span>© {new Date().getFullYear()} Gif Edition · v{SITE_VERSION} · feito para a comunidade do Discord</span>
                   <div className="flex items-center gap-4">
-                    <Link href="/termos" className="hover:text-ink transition-colors">Termos</Link>
-                    <Link href="/privacidade" className="hover:text-ink transition-colors">Privacidade</Link>
+                    <Link href="/regras" className="hover:text-ink transition-colors">Regras e Privacidade</Link>
                     <a href={DISCORD_INVITE} target="_blank" rel="noreferrer" className="text-brand-500 hover:text-brand-600 transition-colors">Discord</a>
                   </div>
                 </div>

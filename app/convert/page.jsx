@@ -75,7 +75,10 @@ export default function ConvertPage() {
       setBusy(false); setProgress(null);
     } catch (e) {
       console.error(e);
-      toast("Falha na conversão.", "error");
+      const msg = e?.message?.includes("demorou") ? "Timeout: o arquivo é muito grande para converter. Tente um arquivo menor."
+        : e?.message?.includes("ocupado") ? "FFmpeg ocupado com outra operação. Tente novamente."
+        : "Falha na conversão. Verifique o formato ou tente um arquivo menor.";
+      toast(msg, "error");
       setBusy(false); setProgress(null);
     }
   };

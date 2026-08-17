@@ -6,13 +6,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Home, Image as ImageIcon, Film, Video, Repeat, Gauge,
   Layers, History, Settings, Sparkles, Menu, X, TerminalSquare, FolderHeart, MessagesSquare,
-  Smile, Laugh, QrCode, ShieldCheck, Rocket, Wand2, Search, Star, ChevronDown, LayoutTemplate, Cog, FolderOpen, Handshake,
+  Smile, Laugh, QrCode, ShieldCheck, Rocket, Wand2, Search, Star, ChevronDown, LayoutTemplate, Cog, FolderOpen, Handshake, ScrollText,
 } from "lucide-react";
 import { DISCORD_INVITE } from "@/lib/utils";
 
 const HOME = { href: "/", label: "Início", icon: Home };
 
 const GROUPS = [
+  {
+    id: "regras", label: "Regras & Privacidade", icon: ScrollText, items: [
+      { href: "/regras", label: "Regras, Termos e Privacidade", icon: ShieldCheck },
+    ],
+  },
   {
     id: "editores", label: "Editores", icon: Wand2, items: [
       { href: "/image", label: "Imagens", icon: ImageIcon },

@@ -4,7 +4,7 @@ export default function sitemap() {
     "", "/image", "/gif", "/video", "/optimize", "/convert",
     "/batch", "/emoji", "/meme", "/qrcode", "/templates",
     "/history", "/saved", "/settings", "/atualizacoes",
-    "/projects", "/parceria", "/termos", "/privacidade",
+    "/projects", "/parceria", "/regras",
   ];
   return routes.map((r) => ({
     url: `${base}${r}`,

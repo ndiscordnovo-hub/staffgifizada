@@ -73,10 +73,8 @@ export default function ConsentGate() {
               className="mt-0.5 h-5 w-5 shrink-0 accent-brand-500 rounded"
             />
             <span className="text-sm text-muted">
-              Li e concordo com os{" "}
-              <Link href="/termos" target="_blank" className="text-brand-500 underline hover:text-brand-600">Termos de Uso</Link>
-              {" "}e a{" "}
-              <Link href="/privacidade" target="_blank" className="text-brand-500 underline hover:text-brand-600">Política de Privacidade</Link>.
+              Li e concordo com as{" "}
+              <Link href="/regras" target="_blank" className="text-brand-500 underline hover:text-brand-600">Regras, Termos e Privacidade</Link>.
             </span>
           </label>
 
